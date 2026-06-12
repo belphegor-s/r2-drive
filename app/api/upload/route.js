@@ -12,7 +12,7 @@ export { r2Client, isValidApiKey };
 const SCOPE = {
   bucket: process.env.R2_BUCKET_NAME,
   rootPrefix: 'uploads',
-  publicBase: process.env.R2_PUBLIC_BASE_URL || 'https://storage.pixly.sh',
+  publicBase: process.env.R2_PUBLIC_BASE_URL || 'https://storage.procd.cc',
 };
 
 export async function GET(req) {
@@ -22,9 +22,7 @@ export async function GET(req) {
   }
 
   try {
-    const result = await r2Client.send(
-      new ListObjectsV2Command({ Bucket: SCOPE.bucket, Prefix: `${SCOPE.rootPrefix}/` }),
-    );
+    const result = await r2Client.send(new ListObjectsV2Command({ Bucket: SCOPE.bucket, Prefix: `${SCOPE.rootPrefix}/` }));
     const files = (result.Contents || [])
       .filter((f) => !f.Key.endsWith('/.keep'))
       .map((file) => ({

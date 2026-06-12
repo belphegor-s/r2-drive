@@ -12,11 +12,11 @@ const nextConfig = {
               default-src 'self';
               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com;
               style-src 'self' 'unsafe-inline';
-              img-src 'self' blob: data: storage.pixly.sh *.r2.cloudflarestorage.com;
+              img-src 'self' blob: data: storage.procd.cc *.r2.cloudflarestorage.com;
               font-src 'self' data:;
-              connect-src 'self' storage.pixly.sh *.r2.cloudflarestorage.com https://vitals.vercel-insights.com;
-              frame-src 'self' storage.pixly.sh *.r2.cloudflarestorage.com docs.google.com;
-              media-src 'self' storage.pixly.sh *.r2.cloudflarestorage.com;
+              connect-src 'self' storage.procd.cc *.r2.cloudflarestorage.com https://vitals.vercel-insights.com;
+              frame-src 'self' storage.procd.cc *.r2.cloudflarestorage.com docs.google.com;
+              media-src 'self' storage.procd.cc *.r2.cloudflarestorage.com;
               object-src 'none';
               frame-ancestors 'none';
               upgrade-insecure-requests;
