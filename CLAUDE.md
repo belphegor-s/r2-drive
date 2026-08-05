@@ -97,6 +97,14 @@ exclude it via `isTrashKey` / `isReservedRelPath`. Both are in `lib/r2/keys.js`.
 **Trash still costs storage.** It counts toward the 10 GB. The usage endpoint
 reports `trashBytes` separately and the UI says so.
 
+**`user-select: none` does not stop double-click selection.** When Chrome
+double-clicks a non-selectable element it walks up to the nearest *selectable*
+ancestor and selects a range there — which is how double-clicking a file used to
+highlight half the page. The selection is started by the default action of the
+**second** mousedown, so `preventDoubleClickSelection` (in `app/lib/interaction.js`)
+cancels only that one. Every grid tile and list row must keep that `onMouseDown`.
+Cancelling the first mousedown instead would break HTML5 drag.
+
 **framer-motion swallows `onDragStart`.** `motion.div` claims that prop for its
 own gesture system and never forwards it to the DOM. HTML5 drag sources must use
 `onDragStartCapture` instead — see `FileGrid.jsx` / `FileList.jsx`.

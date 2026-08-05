@@ -42,6 +42,7 @@ import { driveApi, downloadFileWithProgress, downloadZipWithProgress } from '@/a
 import { uploadEntries, fileListToEntries, snapshotDataTransferEntries, walkSnapshot } from '@/app/lib/uploadClient';
 import { categoryOf } from '@/app/lib/fileTypes';
 import { DRAG_MIME } from '@/app/lib/dnd';
+import { clearSelection } from '@/app/lib/interaction';
 import { MOD_LABEL, formatCombo, getShortcut } from '@/app/lib/shortcuts';
 import { formatCompactBytes } from '@/utils/formatFileSize';
 import copyToClipboard from '@/utils/copyToClipboard';
@@ -727,6 +728,9 @@ export default function DrivePage({ scope }) {
   };
 
   const onItemOpen = ({ kind, item }) => {
+    // Safety net: if anything did slip through, do not leave it highlighted
+    // behind the preview.
+    clearSelection();
     if (kind === 'folder') navigate(item.prefix);
     else openPreview(item);
   };
@@ -1101,7 +1105,11 @@ export default function DrivePage({ scope }) {
             <FilterBar counts={categoryCounts} active={filterCat} onChange={setFilterCat} />
           </div>
 
-          <div ref={contentRef} className="custom-scrollbar flex-1 overflow-y-auto p-3 pb-32 sm:p-6">
+          {/* select-none on the container too: a double-click landing in the
+              padding or a grid gap would otherwise seed a selection here, which
+              is the ancestor the browser falls back to. Matches Finder/Drive,
+              where grid text is not selectable; use Details to copy a key. */}
+          <div ref={contentRef} className="custom-scrollbar flex-1 select-none overflow-y-auto p-3 pb-32 sm:p-6">
             {isLoading ? (
               view === 'grid' ? <GridSkeleton /> : <ListSkeleton />
             ) : isEmpty ? (

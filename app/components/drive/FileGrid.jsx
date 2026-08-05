@@ -9,6 +9,7 @@ import { categoryOf } from '@/app/lib/fileTypes';
 import useLongPress from '@/app/hooks/useLongPress';
 import useThumbnail from '@/app/hooks/useThumbnail';
 import { isRenderableImage } from '@/app/lib/imageThumb';
+import { preventDoubleClickSelection } from '@/app/lib/interaction';
 import { DRAG_MIME } from '@/app/lib/dnd';
 
 function GridItem({
@@ -90,6 +91,7 @@ function GridItem({
             ? 'border-accent bg-accent/10 ring-1 ring-accent/40'
             : 'border-line bg-surface hover:border-line-strong hover:bg-raised'
       } ${isCursor ? 'item-cursor' : ''}`}
+      onMouseDown={preventDoubleClickSelection}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}

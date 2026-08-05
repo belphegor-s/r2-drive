@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { FolderIcon, FileTypeIcon } from './fileIcons';
 import { formatFileSize } from '@/utils/formatFileSize';
 import useLongPress from '@/app/hooks/useLongPress';
+import { preventDoubleClickSelection } from '@/app/lib/interaction';
 import { DRAG_MIME } from '@/app/lib/dnd';
 
 function Row({
@@ -63,6 +64,7 @@ function Row({
       draggable
       // See FileGrid: framer-motion swallows `onDragStart`, so capture instead.
       onDragStartCapture={(e) => onDragStart?.(e)}
+      onMouseDown={preventDoubleClickSelection}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
