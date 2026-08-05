@@ -31,36 +31,43 @@ function toneFor(percent) {
   return { ring: '#3b82f6', text: 'text-ink' };
 }
 
-function Ring({ percent, size = 72, stroke = 7 }) {
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
+/**
+ * One bar carries both facts: how full the plan is (fill vs track) and what is
+ * filling it (segments, by file type). A second composition bar underneath was
+ * redundant — the same numbers drawn twice.
+ *
+ * Past 75% the segments collapse into a single warning-toned fill: at that point
+ * the message is "you are running out", and a rainbow reads as decoration. The
+ * per-type split is still one click away in the breakdown.
+ */
+function UsageBar({ percent, categories }) {
   const clamped = Math.max(0, Math.min(100, percent || 0));
   const tone = toneFor(clamped);
+  const alarmed = clamped >= 75;
+
+  // A nearly-empty drive would otherwise render a sliver too thin to see.
+  const width = clamped === 0 ? 0 : Math.max(clamped, 1.5);
 
   return (
-    <svg width={size} height={size} className="shrink-0 -rotate-90" role="presentation">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="var(--color-raised)"
-        strokeWidth={stroke}
-      />
-      <motion.circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke={tone.ring}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        initial={{ strokeDashoffset: circumference }}
-        animate={{ strokeDashoffset: circumference * (1 - clamped / 100) }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-      />
-    </svg>
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
+      <motion.div
+        className="flex h-full overflow-hidden rounded-full"
+        style={alarmed ? { backgroundColor: tone.ring } : undefined}
+        initial={{ width: 0 }}
+        animate={{ width: `${width}%` }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {!alarmed &&
+          categories.map((c) => (
+            <div
+              key={c.cat}
+              className="h-full"
+              style={{ width: `${c.share}%`, backgroundColor: c.color }}
+              title={`${c.label}: ${formatCompactBytes(c.bytes)}`}
+            />
+          ))}
+      </motion.div>
+    </div>
   );
 }
 
@@ -138,14 +145,10 @@ export default function StorageMeter({ usage, loading, error, onRefresh, onOpenT
 
   if (loading && !usage) {
     return (
-      <div className="border-t border-line p-3">
-        <div className="flex items-center gap-3">
-          <div className="skeleton h-[72px] w-[72px] rounded-full" />
-          <div className="flex-1 space-y-2">
-            <div className="skeleton h-3 w-24 rounded" />
-            <div className="skeleton h-2.5 w-16 rounded" />
-          </div>
-        </div>
+      <div className="space-y-2 border-t border-line p-3">
+        <div className="skeleton h-2.5 w-20 rounded" />
+        <div className="skeleton h-3.5 w-28 rounded" />
+        <div className="skeleton h-1.5 w-full rounded-full" />
       </div>
     );
   }
@@ -159,58 +162,43 @@ export default function StorageMeter({ usage, loading, error, onRefresh, onOpenT
   return (
     <div className="border-t border-line">
       <div className="p-3">
-        <div className="flex items-center gap-2.5">
-          <div className="relative shrink-0">
-            <Ring percent={percent} size={62} stroke={6} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={`text-[13px] font-semibold leading-none ${tone.text}`}>{Math.round(percent)}%</span>
-              <span className="mt-0.5 text-[8px] uppercase tracking-wide text-ink-faint">used</span>
-            </div>
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-ink-faint">
-              <HardDrive size={10} />
-              R2 free plan
-            </div>
-            <div className="mt-1 text-[13px] font-semibold leading-tight text-ink">
-              {formatCompactBytes(storage?.used ?? 0)}
-            </div>
-            <div className="text-[11px] leading-tight text-ink-faint">
-              of {formatCompactBytes(storage?.limit ?? 0)} · {formatCount(usage?.totals?.objects ?? 0)} objects
-            </div>
-          </div>
-
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-faint">
+            <HardDrive size={10} />
+            R2 free plan
+          </span>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="shrink-0 self-start rounded-md p-1.5 text-ink-faint transition-colors hover:bg-hover hover:text-ink disabled:opacity-50"
+            className="-mr-1 shrink-0 rounded-md p-1 text-ink-faint transition-colors hover:bg-hover hover:text-ink disabled:opacity-50"
             title="Recalculate usage"
             aria-label="Recalculate usage"
           >
-            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
           </button>
         </div>
 
-        {/* Composition of what is stored, by file type — not a second quota bar. */}
-        {categories.length > 0 && (
-          <div className="mt-3">
-            <div className="mb-1 text-[9px] uppercase tracking-wider text-ink-faint">Stored by type</div>
-            <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-raised">
-              {categories.map((c) => (
-                <div
-                  key={c.cat}
-                  style={{ width: `${c.share}%`, backgroundColor: c.color }}
-                  title={`${c.label}: ${formatCompactBytes(c.bytes)}`}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="mb-2 mt-1.5 flex items-baseline gap-1">
+          <span className={`text-[15px] font-semibold leading-none tabular-nums ${tone.text}`}>
+            {formatCompactBytes(storage?.used ?? 0)}
+          </span>
+          <span className="text-[11px] leading-none text-ink-faint">
+            of {formatCompactBytes(storage?.limit ?? 0)}
+          </span>
+        </div>
+
+        <UsageBar percent={percent} categories={categories} />
+
+        <div className="mt-1.5 flex items-baseline justify-between text-[10px] text-ink-faint">
+          <span className="tabular-nums">{formatCount(usage?.totals?.objects ?? 0)} objects</span>
+          <span className="tabular-nums">
+            {formatCompactBytes(Math.max(0, (storage?.limit ?? 0) - (storage?.used ?? 0)))} free
+          </span>
+        </div>
 
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="mt-2 flex w-full items-center justify-between rounded-md px-1 py-1 text-[11px] text-ink-faint transition-colors hover:text-ink-muted"
+          className="mt-2 flex w-full items-center justify-between rounded-md py-1 text-[11px] text-ink-faint transition-colors hover:text-ink-muted"
           aria-expanded={expanded}
         >
           <span>{expanded ? 'Hide breakdown' : 'Show breakdown'}</span>
