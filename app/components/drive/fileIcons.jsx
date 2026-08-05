@@ -14,7 +14,7 @@ export function FileTypeIcon({ name, mime, size = 18, className = '' }) {
     case 'archive': return <Archive size={size} className={`${cls} text-amber-400`} />;
     case 'text':  return <Code size={size} className={`${cls} text-sky-400`} />;
     case 'doc':   return <FileSpreadsheet size={size} className={`${cls} text-blue-400`} />;
-    default:      return <FileIcon size={size} className={`${cls} text-gray-400`} />;
+    default:      return <FileIcon size={size} className={`${cls} text-ink-faint`} />;
   }
 }
 

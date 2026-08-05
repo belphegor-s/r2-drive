@@ -99,10 +99,10 @@ export default function ShareDialog({ open, fileKey, onClose }) {
         onSubmit={(e) => { e.preventDefault(); generate(); }}
         className="p-6 space-y-5"
       >
-        <h3 className="text-lg font-semibold border-b border-gray-700 pb-3">Generate pre-signed URL</h3>
+        <h3 className="border-b border-line pb-3 text-lg font-semibold">Generate pre-signed URL</h3>
 
         <div>
-          <label className="block text-xs font-medium mb-1.5 text-gray-300">Expiry</label>
+          <label className="mb-1.5 block text-xs font-medium text-ink-muted">Expiry</label>
           <select
             value={expiry}
             onChange={(e) => setExpiry(e.target.value === 'custom' ? 'custom' : Number(e.target.value))}
@@ -145,7 +145,7 @@ export default function ShareDialog({ open, fileKey, onClose }) {
               </select>
             </div>
           )}
-          {expiryDisplay && <div className="mt-2 text-xs text-gray-400">{expiryDisplay}</div>}
+          {expiryDisplay && <div className="mt-2 text-xs text-ink-faint">{expiryDisplay}</div>}
         </div>
 
         <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
@@ -155,7 +155,7 @@ export default function ShareDialog({ open, fileKey, onClose }) {
 
         {sendEmail && (
           <div>
-            <label className="block text-xs font-medium mb-1.5 text-gray-300">Recipients</label>
+            <label className="mb-1.5 block text-xs font-medium text-ink-muted">Recipients</label>
             <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
               {emails.map((v, i) => (
                 <div key={i} className="flex gap-2" ref={(el) => (emailsRef.current[i] = el)}>
@@ -179,16 +179,16 @@ export default function ShareDialog({ open, fileKey, onClose }) {
                 </div>
               ))}
             </div>
-            <button type="button" onClick={addEmail} className="mt-2 text-blue-400 hover:text-blue-300 text-sm" disabled={generating}>
+            <button type="button" onClick={addEmail} className="mt-2 text-sm text-accent hover:underline" disabled={generating}>
               + Add email
             </button>
           </div>
         )}
 
         {generatedLink && (
-          <div className="text-xs bg-[#141414] border border-gray-800 rounded-md p-3 space-y-2">
-            <div className="text-gray-400">Generated link:</div>
-            <a href={generatedLink} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">{generatedLink}</a>
+          <div className="space-y-2 rounded-lg border border-line bg-sunken p-3 text-xs">
+            <div className="text-ink-faint">Generated link:</div>
+            <a href={generatedLink} target="_blank" rel="noopener noreferrer" className="break-all text-accent hover:underline">{generatedLink}</a>
             <div className="flex justify-end">
               <button
                 type="button"
@@ -206,9 +206,9 @@ export default function ShareDialog({ open, fileKey, onClose }) {
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-gray-700">
+        <div className="flex justify-end gap-2 border-t border-line pt-2">
           <button type="button" onClick={onClose} className="btn-neutral" disabled={generating}>Cancel</button>
-          <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-semibold disabled:opacity-50" disabled={generating}>
+          <button type="submit" className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-50" disabled={generating}>
             {generating ? 'Generating…' : 'Generate'}
           </button>
         </div>

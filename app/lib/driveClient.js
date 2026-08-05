@@ -33,16 +33,41 @@ export const driveApi = {
   },
   createFolder: (scope, prefix, name) =>
     jsonFetch(`${base(scope)}/folder`, { method: 'POST', body: JSON.stringify({ prefix, name }) }),
-  deleteFolder: (scope, prefix) =>
-    jsonFetch(`${base(scope)}/folder`, { method: 'DELETE', body: JSON.stringify({ prefix }) }),
-  deleteKeys: (scope, keys) =>
-    jsonFetch(`${base(scope)}/delete`, { method: 'POST', body: JSON.stringify({ keys }) }),
-  move: (scope, keys, destPrefix) =>
-    jsonFetch(`${base(scope)}/move`, { method: 'POST', body: JSON.stringify({ keys, destPrefix }) }),
-  copy: (scope, keys, destPrefix) =>
-    jsonFetch(`${base(scope)}/copy`, { method: 'POST', body: JSON.stringify({ keys, destPrefix }) }),
+  deleteFolder: (scope, prefix, { permanent = false } = {}) =>
+    jsonFetch(`${base(scope)}/folder`, { method: 'DELETE', body: JSON.stringify({ prefix, permanent }) }),
+  deleteKeys: (scope, keys, { permanent = false } = {}) =>
+    jsonFetch(`${base(scope)}/delete`, { method: 'POST', body: JSON.stringify({ keys, permanent }) }),
+  // `keys` are file object keys, `prefixes` are folder paths relative to the scope root.
+  move: (scope, { keys = [], prefixes = [], destPrefix = '' }) =>
+    jsonFetch(`${base(scope)}/move`, { method: 'POST', body: JSON.stringify({ keys, prefixes, destPrefix }) }),
+  copy: (scope, { keys = [], prefixes = [], destPrefix = '' }) =>
+    jsonFetch(`${base(scope)}/copy`, { method: 'POST', body: JSON.stringify({ keys, prefixes, destPrefix }) }),
   rename: (scope, payload) =>
     jsonFetch(`${base(scope)}/rename`, { method: 'POST', body: JSON.stringify(payload) }),
+  recent: (scope, { refresh = false } = {}) => {
+    const u = new URL(`${base(scope)}/recent`, window.location.origin);
+    if (refresh) u.searchParams.set('refresh', '1');
+    return jsonFetch(u.toString());
+  },
+  meta: (scope, key) => {
+    const u = new URL(`${base(scope)}/meta`, window.location.origin);
+    u.searchParams.set('key', key);
+    return jsonFetch(u.toString());
+  },
+  usage: ({ refresh = false } = {}) => {
+    const u = new URL('/api/drive/usage', window.location.origin);
+    if (refresh) u.searchParams.set('refresh', '1');
+    return jsonFetch(u.toString());
+  },
+  trash: {
+    list: (scope) => jsonFetch(`${base(scope)}/trash`),
+    restore: (scope, token) =>
+      jsonFetch(`${base(scope)}/trash`, { method: 'POST', body: JSON.stringify({ token }) }),
+    purge: (scope, token) =>
+      jsonFetch(`${base(scope)}/trash`, { method: 'DELETE', body: JSON.stringify({ token }) }),
+    empty: (scope) =>
+      jsonFetch(`${base(scope)}/trash`, { method: 'DELETE', body: JSON.stringify({ all: true }) }),
+  },
   search: (scope, q, prefix = '') => {
     const u = new URL(`${base(scope)}/search`, window.location.origin);
     u.searchParams.set('q', q);

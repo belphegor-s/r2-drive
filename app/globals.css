@@ -1,63 +1,152 @@
 @import 'tailwindcss';
 
+/* ───────────────────────────────────────────────────────────────────────────
+   Design tokens
+
+   The app is dark-only by design. Every surface colour below is a token so the
+   palette can be retuned in one place; components should reach for
+   `bg-surface` / `text-muted` / `border-app` rather than raw hex values.
+   ─────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-base: #101113;
+  --color-surface: #17181b;
+  --color-raised: #1d1f23;
+  --color-hover: #25282d;
+  --color-active: #2e3238;
+  --color-sunken: #0b0c0e;
+
+  --color-line: #26292f;
+  --color-line-strong: #343841;
+
+  --color-ink: #e8eaed;
+  --color-ink-muted: #9aa0a6;
+  --color-ink-faint: #6b7280;
+
+  --color-accent: #3b82f6;
+  --color-accent-strong: #2563eb;
+  --color-accent-soft: #1e3a8a;
+
+  --color-positive: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #ef4444;
+  --color-danger-strong: #b91c1c;
+
+  --radius-panel: 0.875rem;
+
+  /* Small phones sit below Tailwind's default `sm`; a few dense rows need a
+     breakpoint under it. */
+  --breakpoint-xs: 26rem;
+}
+
+:root {
+  color-scheme: dark;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --shadow-panel: 0 18px 48px -20px rgba(0, 0, 0, 0.85), 0 2px 10px -4px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 10px 30px -10px rgba(0, 0, 0, 0.7), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
+}
+
+html,
 body {
-  @apply bg-[#272727] text-[#f5f5f5];
+  background-color: var(--color-base);
+  color: var(--color-ink);
+}
+
+body {
   font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 input,
 textarea,
 select {
-  font-size: 16px;
+  font-size: 16px; /* keeps iOS from zooming on focus */
 }
 
 button {
   cursor: pointer;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: #fff;
+}
+
+/* Consistent, visible focus for keyboard users without ringing on mouse click. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
 @keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes scale-in {
-  from {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.25s ease-out;
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 @keyframes progress-indeterminate {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(400%);
-  }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s var(--ease-out-soft);
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s var(--ease-out-soft);
 }
 
 .progress-indeterminate {
   animation: progress-indeterminate 1.4s ease-in-out infinite;
 }
 
-.animate-scale-in {
-  animation: scale-in 0.3s ease-out;
+/* Skeleton placeholder used while a folder listing loads. */
+.skeleton {
+  background-color: var(--color-raised);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    transparent 100%
+  );
+  background-size: 400px 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* ─── Scrollbars ─────────────────────────────────────────────────────────── */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
+  width: 9px;
+  height: 9px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -65,69 +154,160 @@ button {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #555;
+  background-color: var(--color-line-strong);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-  background-color: #777;
+  background-color: #4a4f59;
 }
 
+/* ─── Form + button primitives ───────────────────────────────────────────────
+   These live in the `components` layer so plain utilities still win. Unlayered
+   rules beat every layer in CSS cascade order, which would make things like
+   `class="custom-input pl-9"` silently ignore the padding override.
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer components {
 .custom-input {
-  @apply p-2 rounded bg-[#2a2a2a] border border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 w-full;
+  @apply w-full rounded-lg px-3 py-2 text-sm transition-colors;
+  background-color: var(--color-raised);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink);
+}
+
+.custom-input::placeholder {
+  color: var(--color-ink-faint);
+}
+
+.custom-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 .btn-primary {
-  @apply w-full cursor-pointer flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-500 hover:bg-blue-700 disabled:opacity-70 disabled:hover:bg-blue-500;
+  @apply flex w-full cursor-pointer justify-center rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60;
+  background-color: var(--color-accent);
 }
 
-.btn-danger {
-  @apply cursor-pointer flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-500 hover:bg-red-700 disabled:opacity-70 disabled:hover:bg-red-500;
-}
-
-.btn-danger-variant {
-  @apply px-4 py-2 bg-[#7a1f1f] hover:bg-[#b22222] transition-all rounded-md text-white cursor-pointer disabled:!opacity-70 disabled:!cursor-not-allowed;
-}
-
-.btn-danger-variant-small {
-  @apply px-3 py-1 text-xs bg-[#7a1f1f] hover:bg-[#b22222] transition-all rounded-md text-white cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed;
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-accent-strong);
 }
 
 .btn-neutral {
-  @apply px-4 py-2 bg-[#2e2e2e] hover:bg-[#3a3a3a] rounded-md text-sm;
+  @apply cursor-pointer rounded-lg px-4 py-2 text-sm transition-colors;
+  background-color: var(--color-raised);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink);
+}
+
+.btn-neutral:hover:not(:disabled) {
+  background-color: var(--color-hover);
+  border-color: var(--color-line-strong);
+}
+
+.btn-neutral:disabled {
+  @apply cursor-not-allowed opacity-50;
 }
 
 .btn-neutral-small {
-  @apply px-3 py-1 text-xs bg-[#313131] hover:bg-[#434343] transition-all rounded-md text-white cursor-pointer;
+  @apply cursor-pointer rounded-md px-3 py-1 text-xs text-white transition-colors;
+  background-color: var(--color-raised);
 }
 
-/* Drive — selection + tree row helpers */
+.btn-neutral-small:hover {
+  background-color: var(--color-hover);
+}
+
+.btn-danger {
+  @apply flex cursor-pointer justify-center rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60;
+  background-color: var(--color-danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: var(--color-danger-strong);
+}
+
+.btn-danger-variant {
+  @apply cursor-pointer rounded-lg px-4 py-2 text-white transition-colors disabled:!cursor-not-allowed disabled:!opacity-70;
+  background-color: #7f1d1d;
+}
+
+.btn-danger-variant:hover:not(:disabled) {
+  background-color: var(--color-danger-strong);
+}
+
+.btn-danger-variant-small {
+  @apply cursor-pointer rounded-md px-3 py-1 text-xs text-white transition-colors disabled:cursor-not-allowed disabled:opacity-70;
+  background-color: #7f1d1d;
+}
+
+.btn-danger-variant-small:hover:not(:disabled) {
+  background-color: var(--color-danger-strong);
+}
+
+/* ─── Surfaces ───────────────────────────────────────────────────────────── */
+.panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-panel);
+}
+
+.floating-panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line-strong);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Frosted overlay used by the command palette and modals. */
+.glass {
+  background-color: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid var(--color-line-strong);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Keyboard shortcut hint, e.g. ⌘K */
+.kbd {
+  @apply inline-flex min-w-[1.4rem] items-center justify-center rounded px-1.5 py-0.5 font-mono text-[11px] leading-none;
+  background-color: var(--color-raised);
+  border: 1px solid var(--color-line-strong);
+  border-bottom-width: 2px;
+  color: var(--color-ink-muted);
+}
+
+/* ─── Drive helpers ──────────────────────────────────────────────────────── */
 .tree-row {
-  @apply flex items-center gap-2 rounded-md cursor-pointer text-sm select-none;
+  @apply flex cursor-pointer select-none items-center gap-2 rounded-md text-sm;
 }
 
 .tree-row-active {
-  @apply bg-blue-600/15 border-l-2 border-blue-500;
+  background-color: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border-left: 2px solid var(--color-accent);
 }
 
 .tree-row-inactive {
-  @apply hover:bg-[#2a2a2a] border-l-2 border-transparent;
+  border-left: 2px solid transparent;
 }
 
-/* Hide native file input but keep accessible */
+.tree-row-inactive:hover {
+  background-color: var(--color-hover);
+}
+
+/* Marks the item the keyboard cursor is on, independent of selection. */
+.item-cursor {
+  box-shadow: 0 0 0 2px var(--color-accent), 0 0 0 5px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
 input[type='file'].hidden {
   display: none;
 }
 
-/* Drive: prevent text selection on rapid double-clicks */
 .no-select {
   user-select: none;
   -webkit-user-select: none;
 }
-
-/* Subtle inner shadow for context menu / floating panels */
-.floating-panel {
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
-}
+} /* @layer components */

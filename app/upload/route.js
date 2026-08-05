@@ -1,5 +1,6 @@
 import { redirect, RedirectType } from 'next/navigation';
 
 export function GET() {
-  return redirect('/upload/public', RedirectType.replace);
+  // Private is the default drive; public is the exception.
+  return redirect('/upload/private', RedirectType.replace);
 }

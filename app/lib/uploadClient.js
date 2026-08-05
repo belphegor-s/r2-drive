@@ -37,7 +37,6 @@ async function walkEntry(entry, basePath, out) {
     const children = await readAllEntries(reader);
     const nextBase = basePath + entry.name + '/';
     for (const child of children) {
-      // eslint-disable-next-line no-await-in-loop
       await walkEntry(child, nextBase, out);
     }
   }

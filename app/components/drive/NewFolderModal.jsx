@@ -24,7 +24,7 @@ export default function NewFolderModal({ open, onClose, onSubmit, busy }) {
         />
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-neutral" onClick={onClose} disabled={busy}>Cancel</button>
-          <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm disabled:opacity-50" disabled={busy || !name.trim()}>
+          <button type="submit" className="rounded-lg bg-accent px-4 py-2 text-sm text-white transition-colors hover:bg-accent-strong disabled:opacity-50" disabled={busy || !name.trim()}>
             {busy ? 'Creating…' : 'Create'}
           </button>
         </div>

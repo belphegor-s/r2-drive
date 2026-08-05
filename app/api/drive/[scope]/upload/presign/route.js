@@ -3,7 +3,8 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { requireAuthAndScope } from '@/lib/r2/guard';
 import { r2Client } from '@/lib/r2/client';
-import { normalizePrefix, uuidPrefixedFilename, safeSegment, ensureRootPrefixed } from '@/lib/r2/keys';
+import { normalizePrefix, uuidPrefixedFilename, safeSegment, ensureRootPrefixed, isReservedRelPath } from '@/lib/r2/keys';
+import { invalidateUsageCache } from '@/lib/r2/usage';
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
@@ -20,6 +21,10 @@ export async function POST(req, { params }) {
     }
 
     const cleanedBase = normalizePrefix(prefix);
+    if (isReservedRelPath(cleanedBase)) {
+      return NextResponse.json({ error: 'That location is reserved' }, { status: 400 });
+    }
+
     const presignedData = await Promise.all(
       files.map(async (file) => {
         const { filename, relativePath, mimeType, size } = file;
@@ -60,6 +65,10 @@ export async function POST(req, { params }) {
         };
       })
     );
+
+    // Bytes land in R2 via the presigned PUTs, so the cached usage snapshot is
+    // stale the moment these URLs are handed out.
+    invalidateUsageCache();
 
     return NextResponse.json({ files: presignedData });
   } catch (err) {

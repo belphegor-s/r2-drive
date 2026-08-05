@@ -6,8 +6,9 @@ import { CheckCircle2, AlertCircle, X, Ban } from 'lucide-react';
 export default function UploadProgress({ batches, onDismiss, onCancel, lift = false }) {
   return (
     <div
-      className="fixed right-4 z-50 space-y-2 w-[min(360px,calc(100%-2rem))] transition-all"
-      style={{ bottom: lift ? 92 : 16 }}
+      className="fixed right-4 z-50 w-[min(360px,calc(100%-2rem))] space-y-2 transition-all"
+      style={{ bottom: lift ? 96 : 16 }}
+      aria-live="polite"
     >
       <AnimatePresence>
         {batches.map((b) => {
@@ -19,43 +20,57 @@ export default function UploadProgress({ batches, onDismiss, onCancel, lift = fa
               initial={{ opacity: 0, x: 40 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 40 }}
-              className="rounded-xl bg-[#1c1c1c] border border-gray-700 shadow-2xl overflow-hidden"
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="glass overflow-hidden rounded-xl"
             >
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-800">
-                {b.status === 'done' && <CheckCircle2 size={16} className="text-emerald-400" />}
-                {b.status === 'error' && <AlertCircle size={16} className="text-red-400" />}
-                {b.status === 'cancelled' && <Ban size={16} className="text-gray-400" />}
-                {inflight && <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
-                <span className="text-sm font-medium flex-1 truncate">{b.label}</span>
+              <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+                {b.status === 'done' && <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />}
+                {b.status === 'error' && <AlertCircle size={16} className="shrink-0 text-red-400" />}
+                {b.status === 'cancelled' && <Ban size={16} className="shrink-0 text-ink-faint" />}
+                {inflight && (
+                  <div className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                )}
+                <span className="flex-1 truncate text-sm font-medium">{b.label}</span>
+
+                {inflight && !b.indeterminate && (
+                  <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">
+                    {Math.round(b.percent || 0)}%
+                  </span>
+                )}
 
                 {inflight && onCancel && (
                   <button
                     onClick={() => onCancel(b.id)}
-                    className="px-2 py-0.5 text-[11px] rounded bg-[#7a1f1f] hover:bg-[#b22222] text-white"
+                    className="btn-danger-variant-small shrink-0"
                     title="Cancel"
                   >
                     Cancel
                   </button>
                 )}
                 {terminal && (
-                  <button onClick={() => onDismiss(b.id)} className="text-gray-400 hover:text-white" title="Dismiss">
+                  <button
+                    onClick={() => onDismiss(b.id)}
+                    className="shrink-0 text-ink-faint transition-colors hover:text-ink"
+                    title="Dismiss"
+                    aria-label="Dismiss"
+                  >
                     <X size={14} />
                   </button>
                 )}
               </div>
 
               {inflight && (
-                <div className="h-1 bg-[#2a2a2a] overflow-hidden">
+                <div className="h-1 overflow-hidden bg-raised">
                   {b.indeterminate ? (
-                    <div className="h-full w-1/3 bg-blue-500 progress-indeterminate" />
+                    <div className="progress-indeterminate h-full w-1/3 bg-accent" />
                   ) : (
-                    <div className="h-full bg-blue-500 transition-all" style={{ width: `${b.percent || 0}%` }} />
+                    <div className="h-full bg-accent transition-all" style={{ width: `${b.percent || 0}%` }} />
                   )}
                 </div>
               )}
 
               {b.message && (
-                <div className={`px-3 py-1.5 text-[11px] ${b.status === 'error' ? 'text-red-400' : b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-400'}`}>
+                <div className={`px-3 py-1.5 text-[11px] ${b.status === 'error' ? 'text-red-400' : 'text-ink-faint'}`}>
                   {b.message}
                 </div>
               )}

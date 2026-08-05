@@ -37,26 +37,26 @@ export default function ContextMenu({ menu, items, onClose }) {
             zIndex: 60,
             visibility: pos.ready ? 'visible' : 'hidden',
           }}
-          className="min-w-[200px] bg-[#1c1c1c] border border-gray-700 rounded-lg shadow-2xl py-1"
+          className="glass min-w-[216px] rounded-xl py-1"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
           {items.map((it, i) =>
             it.divider ? (
-              <div key={`d-${i}`} className="my-1 border-t border-gray-800" />
+              <div key={`d-${i}`} className="my-1 border-t border-line" />
             ) : (
               <button
                 key={it.label}
                 disabled={it.disabled}
                 onClick={() => { it.onClick(); onClose(); }}
-                className={`w-full text-left flex items-center gap-2 px-3 py-2 text-sm transition ${
-                  it.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-gray-200 hover:bg-[#2a2a2a]'
-                } ${it.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
+                  it.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-ink-muted hover:bg-hover hover:text-ink'
+                } ${it.disabled ? 'cursor-not-allowed opacity-50' : ''}`}
               >
-                {it.icon && <span className="text-gray-400">{it.icon}</span>}
-                <span className="flex-1">{it.label}</span>
-                {it.shortcut && <span className="text-[11px] text-gray-500">{it.shortcut}</span>}
+                {it.icon && <span className={it.danger ? '' : 'text-ink-faint'}>{it.icon}</span>}
+                <span className="flex-1 truncate">{it.label}</span>
+                {it.shortcut && <kbd className="kbd shrink-0">{it.shortcut}</kbd>}
               </button>
             ),
           )}

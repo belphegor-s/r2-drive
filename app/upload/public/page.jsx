@@ -6,7 +6,7 @@ import Loader from '@/app/components/Loader';
 
 export default function PublicDrivePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#272727]"><Loader /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-base"><Loader /></div>}>
       <DrivePage scope="public" />
     </Suspense>
   );

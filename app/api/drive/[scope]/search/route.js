@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuthAndScope, serverError } from '@/lib/r2/guard';
 import { iterateAllObjects } from '@/lib/r2/listing';
-import { listingPrefix, basenameFromKey, isFolderMarker, folderPathFromKey } from '@/lib/r2/keys';
+import { listingPrefix, basenameFromKey, isFolderMarker, folderPathFromKey, isTrashKey } from '@/lib/r2/keys';
 import { mimeFromName, mimeCategory } from '@/lib/r2/mime';
 
 const MAX_RESULTS = 500;
@@ -21,6 +21,7 @@ export async function GET(req, { params }) {
     let truncated = false;
     for await (const obj of iterateAllObjects(scope.bucket, listingPrefix(scope.rootPrefix, prefix))) {
       if (isFolderMarker(obj.Key)) continue;
+      if (isTrashKey(obj.Key, scope.rootPrefix)) continue;
       const name = basenameFromKey(obj.Key);
       if (!name.toLowerCase().includes(q)) continue;
       const mime = mimeFromName(name);

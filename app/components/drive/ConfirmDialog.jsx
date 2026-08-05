@@ -16,13 +16,14 @@ export default function ConfirmDialog({
     <Modal open={open} onClose={busy ? () => {} : onClose}>
       <div className="p-6">
         <h3 className="text-lg font-semibold">{title}</h3>
-        {message && <div className="text-sm text-gray-300 mt-3 whitespace-pre-line">{message}</div>}
+        {message && <div className="mt-3 whitespace-pre-line text-sm text-ink-muted">{message}</div>}
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="btn-neutral" disabled={busy}>Cancel</button>
           <button
             onClick={onConfirm}
             disabled={busy}
-            className={danger ? 'btn-danger-variant' : 'px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm disabled:opacity-50'}
+            autoFocus
+            className={danger ? 'btn-danger-variant' : 'rounded-lg bg-accent px-4 py-2 text-sm text-white transition-colors hover:bg-accent-strong disabled:opacity-50'}
           >
             {busy ? 'Working…' : confirmLabel}
           </button>

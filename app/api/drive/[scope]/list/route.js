@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuthAndScope, serverError } from '@/lib/r2/guard';
 import { listOneLevel } from '@/lib/r2/listing';
-import { listingPrefix, basenameFromKey, commonPrefixToFolder, isFolderMarker } from '@/lib/r2/keys';
+import { listingPrefix, basenameFromKey, commonPrefixToFolder, isFolderMarker, isReservedRelPath } from '@/lib/r2/keys';
 import { mimeFromName, mimeCategory } from '@/lib/r2/mime';
 
 export async function GET(req, { params }) {
@@ -15,7 +15,10 @@ export async function GET(req, { params }) {
   try {
     const list = await listOneLevel(scope.bucket, listingPrefix(scope.rootPrefix, prefix));
 
-    const folders = list.folders.map((cp) => commonPrefixToFolder(cp, scope.rootPrefix));
+    // ".trash" is an implementation detail of soft delete — it has its own view.
+    const folders = list.folders
+      .map((cp) => commonPrefixToFolder(cp, scope.rootPrefix))
+      .filter((f) => !isReservedRelPath(f.prefix));
 
     const files = list.files
       .filter((obj) => !isFolderMarker(obj.Key))

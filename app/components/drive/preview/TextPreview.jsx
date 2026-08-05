@@ -31,7 +31,7 @@ export default function TextPreview({ url, name }) {
 
   const lang = langForExt(name);
 
-  if (loading) return <div className="p-6 text-sm text-gray-400">Loading…</div>;
+  if (loading) return <div className="p-6 text-sm text-ink-faint">Loading…</div>;
   if (error) return <div className="p-6 text-sm text-red-400">Failed to load: {error.message}</div>;
 
   return (
@@ -41,14 +41,14 @@ export default function TextPreview({ url, name }) {
           <pre className={`${className} text-xs sm:text-sm m-0 p-4`} style={{ ...style, background: 'transparent', minHeight: '100%' }}>
             {tokens.map((line, i) => (
               <div key={i} {...getLineProps({ line })} className="flex">
-                <span className="select-none text-gray-600 pr-4 text-right inline-block min-w-[2.5rem]">{i + 1}</span>
+                <span className="select-none text-ink-faint pr-4 text-right inline-block min-w-[2.5rem]">{i + 1}</span>
                 <span>{line.map((token, k) => <span key={k} {...getTokenProps({ token })} />)}</span>
               </div>
             ))}
           </pre>
         )}
       </Highlight>
-      {truncated && <div className="p-3 text-xs text-amber-400 border-t border-gray-800">File truncated at 2 MB.</div>}
+      {truncated && <div className="p-3 text-xs text-amber-400 border-t border-line">File truncated at 2 MB.</div>}
     </div>
   );
 }

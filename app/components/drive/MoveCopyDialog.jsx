@@ -25,11 +25,11 @@ function PickerNode({ scope, node, depth, selected, onSelect, disabledPrefixes }
     <div>
       <div
         className={`flex items-center gap-1 rounded-md text-sm select-none ${
-          isSelected ? 'bg-blue-600/15 border-l-2 border-blue-500' : 'hover:bg-[#2a2a2a] border-l-2 border-transparent'
-        } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+          isSelected ? 'border-l-2 border-accent bg-accent/15' : 'border-l-2 border-transparent hover:bg-hover'
+        } ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
         style={{ paddingLeft: 8 + depth * 12 }}
       >
-        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }} className="p-1 text-gray-400 hover:text-white">
+        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }} className="p-1 text-ink-faint hover:text-ink">
           {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </button>
         <button
@@ -64,18 +64,18 @@ export default function MoveCopyDialog({ open, scope, mode = 'move', sourcePrefi
     <Modal open={open} onClose={busy ? () => {} : onClose} maxWidth="max-w-lg">
       <div className="p-6">
         <h3 className="text-lg font-semibold capitalize">{mode} to…</h3>
-        <p className="text-xs text-gray-400 mt-1">Pick a destination folder.</p>
+        <p className="mt-1 text-xs text-ink-faint">Pick a destination folder.</p>
 
-        <div className="mt-4 max-h-[50vh] overflow-y-auto custom-scrollbar bg-[#141414] border border-gray-800 rounded-md py-1">
+        <div className="custom-scrollbar mt-4 max-h-[50vh] overflow-y-auto rounded-lg border border-line bg-sunken py-1">
           <div
-            className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer text-sm select-none ${
-              selected === '' ? 'bg-blue-600/15 border-l-2 border-blue-500' : 'hover:bg-[#2a2a2a] border-l-2 border-transparent'
+            className={`flex cursor-pointer select-none items-center gap-2 px-2 py-1.5 text-sm ${
+              selected === '' ? 'border-l-2 border-accent bg-accent/15' : 'border-l-2 border-transparent hover:bg-hover'
             }`}
             onClick={() => setSelected('')}
             style={{ paddingLeft: 12 }}
           >
-            <HardDrive size={14} className="text-blue-400" />
-            <span>Home</span>
+            <HardDrive size={14} className="text-accent" />
+            <span>Drive root</span>
           </div>
           {roots.map((r) => (
             <PickerNode
@@ -95,7 +95,7 @@ export default function MoveCopyDialog({ open, scope, mode = 'move', sourcePrefi
           <button
             onClick={() => onSubmit(selected)}
             disabled={busy}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm disabled:opacity-50 capitalize"
+            className="rounded-lg bg-accent px-4 py-2 text-sm capitalize text-white transition-colors hover:bg-accent-strong disabled:opacity-50"
           >
             {busy ? 'Working…' : mode}
           </button>

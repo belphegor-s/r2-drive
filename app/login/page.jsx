@@ -45,7 +45,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-6 bg-[#272727]">
+    <div className="relative min-h-screen flex items-center justify-center p-6 bg-base">
       {/* Dotted background */}
       <div
         aria-hidden
@@ -62,7 +62,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center gap-3 mb-10">
           <Image src={CFIcon} alt="Cloudflare" width={40} height={40} />
           <h1 className="text-2xl font-semibold text-white">R2 Drive</h1>
-          <p className="text-sm text-gray-300">Sign in to continue</p>
+          <p className="text-sm text-ink-muted">Sign in to continue</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -96,7 +96,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="text-gray-500 hover:text-gray-300 transition"
+                className="text-ink-faint hover:text-ink-muted transition"
                 tabIndex={-1}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
@@ -131,7 +131,7 @@ export default function LoginPage() {
           </motion.button>
         </form>
 
-        <p className="mt-8 text-center text-xs text-gray-400">Cloudflare R2 · Next.js</p>
+        <p className="mt-8 text-center text-xs text-ink-faint">Cloudflare R2 · Next.js</p>
       </motion.div>
     </div>
   );
@@ -140,7 +140,7 @@ export default function LoginPage() {
 function Input({ id, label, suffix, ...props }) {
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-100 mb-2">
+      <label htmlFor={id} className="block text-sm font-medium text-ink mb-2">
         {label}
       </label>
       <div className="relative">
@@ -148,7 +148,7 @@ function Input({ id, label, suffix, ...props }) {
           id={id}
           required
           {...props}
-          className={`w-full ${suffix ? 'pr-10' : 'pr-3'} pl-3 py-2.5 rounded-md bg-[#1c1c1c] border border-gray-700 text-[15px] text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition disabled:opacity-60`}
+          className={`w-full ${suffix ? 'pr-10' : 'pr-3'} pl-3 py-2.5 rounded-md bg-surface border border-line text-[15px] text-white placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition disabled:opacity-60`}
         />
         {suffix && <span className="absolute right-2 top-1/2 -translate-y-1/2">{suffix}</span>}
       </div>
@@ -156,58 +156,85 @@ function Input({ id, label, suffix, ...props }) {
   );
 }
 
+const OTP_LENGTH = 6;
+
 function OTPInput({ otp, setOtp, disabled, setError }) {
-  const inputRefs = Array(6)
-    .fill(0)
-    .map(() => ({})); // Temporary refs for focus
+  const focusBox = (index) => {
+    const el = document.getElementById(`otp-${Math.max(0, Math.min(index, OTP_LENGTH - 1))}`);
+    el?.focus();
+    el?.select();
+  };
+
+  /**
+   * Write `digits` into the boxes starting at `startIndex`.
+   *
+   * Everything funnels through here — typing, pasting, and password-manager
+   * autofill. Autofill in particular does NOT emit a paste event: extensions
+   * assign the whole code to one box's value and dispatch `input`, so the
+   * change handler has to cope with a multi-character value instead of
+   * assuming one keystroke per box.
+   */
+  const fillFrom = (startIndex, digits) => {
+    const clean = digits.replace(/\D/g, '');
+    if (!clean) return;
+
+    const next = [...otp];
+    // A complete code always lands in box 0, wherever it was dropped.
+    const start = clean.length >= OTP_LENGTH ? 0 : startIndex;
+
+    for (let i = 0; i < clean.length && start + i < OTP_LENGTH; i++) {
+      next[start + i] = clean[i];
+    }
+
+    setOtp(next);
+    setError('');
+    focusBox(start + clean.length);
+  };
 
   const handleChange = (value, index) => {
-    if (isNaN(value)) return;
-
-    const newOtp = [...otp];
-    // Take only the last character if user types over an existing digit
-    newOtp[index] = value.substring(value.length - 1);
-    setOtp(newOtp);
-    setError('');
-
-    // Auto-focus next input
-    if (value && index < 5) {
-      const nextInput = document.getElementById(`otp-${index + 1}`);
-      nextInput?.focus();
+    if (value === '') {
+      const next = [...otp];
+      next[index] = '';
+      setOtp(next);
+      setError('');
+      return;
     }
+    fillFrom(index, value);
   };
 
   const handleKeyDown = (e, index) => {
     if (e.key === 'Backspace') {
-      if (!otp[index] && index > 0) {
-        // Focus previous input on backspace if current is empty
-        const prevInput = document.getElementById(`otp-${index - 1}`);
-        prevInput?.focus();
+      if (otp[index]) return; // let the change handler clear this box
+      e.preventDefault();
+      if (index > 0) {
+        const next = [...otp];
+        next[index - 1] = '';
+        setOtp(next);
+        focusBox(index - 1);
       }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      e.preventDefault();
+      focusBox(index - 1);
+    } else if (e.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
+      e.preventDefault();
+      focusBox(index + 1);
     }
   };
 
-  const handlePaste = (e) => {
+  const handlePaste = (e, index) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text/plain').replace(/\D/g, '').slice(0, 6);
-    if (!pastedData) return;
-
-    const newOtp = [...otp];
-    pastedData.split('').forEach((char, i) => {
-      if (i < 6) newOtp[i] = char;
-    });
-    setOtp(newOtp);
-    setError('');
-
-    // Focus the last filled input or the next empty one
-    const targetIndex = Math.min(pastedData.length, 5);
-    document.getElementById(`otp-${targetIndex}`)?.focus();
+    const clip = e.clipboardData;
+    // Extensions are inconsistent about the flavour they publish.
+    const text = clip.getData('text/plain') || clip.getData('text') || clip.getData('Text') || '';
+    fillFrom(index, text.slice(0, 32));
   };
 
   return (
     <div className="space-y-2.5">
       <div className="flex justify-between items-center px-0.5">
-        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider">Verification Code</label>
+        <label htmlFor="otp-0" className="block text-xs font-medium text-ink-faint uppercase tracking-wider">
+          Verification Code
+        </label>
       </div>
       <div className="flex gap-2 sm:gap-3 justify-between">
         {otp.map((data, index) => (
@@ -216,14 +243,20 @@ function OTPInput({ otp, setOtp, disabled, setError }) {
             id={`otp-${index}`}
             type="text"
             inputMode="numeric"
-            autoComplete="one-time-code"
+            pattern="[0-9]*"
+            // No maxLength: the browser would clip a 6-digit paste to one
+            // character before React ever sees it.
+            // Only the first box advertises one-time-code, otherwise browsers
+            // race to autofill all six with the same full string.
+            autoComplete={index === 0 ? 'one-time-code' : 'off'}
+            aria-label={`Digit ${index + 1} of ${OTP_LENGTH}`}
             value={data}
             disabled={disabled}
             onChange={(e) => handleChange(e.target.value, index)}
             onKeyDown={(e) => handleKeyDown(e, index)}
-            onPaste={handlePaste}
-            // Reduced size from w-12 h-12 to w-10 h-11 for a sleeker look
-            className="w-10 h-11 sm:w-11 sm:h-12 text-center rounded-md bg-[#1c1c1c] border border-gray-800 text-lg font-bold text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:opacity-50 placeholder:text-gray-600"
+            onPaste={(e) => handlePaste(e, index)}
+            onFocus={(e) => e.target.select()}
+            className="w-10 h-11 sm:w-11 sm:h-12 text-center rounded-md bg-surface border border-line text-lg font-bold text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:opacity-50 placeholder:text-ink-faint"
           />
         ))}
       </div>
