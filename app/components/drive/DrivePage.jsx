@@ -12,7 +12,6 @@ import Navbar from '@/app/components/Navbar';
 import Sidebar from './Sidebar';
 import Breadcrumbs from './Breadcrumbs';
 import Toolbar from './Toolbar';
-import SearchBar from './SearchBar';
 import FileGrid from './FileGrid';
 import FileList from './FileList';
 import FilterBar from './FilterBar';
@@ -125,15 +124,12 @@ export default function DrivePage({ scope }) {
   const [trashOpen, setTrashOpen] = useState(false);
 
   const [batches, setBatches] = useState([]);
-  const [searchOverlay, setSearchOverlay] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dropOver, setDropOver] = useState(false);
-  const [activeSearch, setActiveSearch] = useState(null);
   const [cursorIndex, setCursorIndex] = useState(-1);
 
   const dragCounter = useRef(0);
   const batchControllers = useRef(new Map());
-  const searchBarRef = useRef(null);
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
   const contentRef = useRef(null);
@@ -151,9 +147,8 @@ export default function DrivePage({ scope }) {
         files: starred.items.filter((i) => i.kind === 'file').map((i) => i.item),
       };
     }
-    if (activeSearch) return { folders: [], files: activeSearch.results || [] };
     return data;
-  }, [viewMode, recent.files, starred.items, activeSearch, data]);
+  }, [viewMode, recent.files, starred.items, data]);
 
   const sorted = useMemo(() => sortItems(baseData, sort), [baseData, sort]);
 
@@ -263,7 +258,6 @@ export default function DrivePage({ scope }) {
     selection.clear();
     setCursorIndex(-1);
     setFilterCat(null);
-    setActiveSearch(null);
   }, [prefix, scope, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -279,37 +273,6 @@ export default function DrivePage({ scope }) {
       cancelled = true;
     };
   }, [viewMode, scope]);
-
-  // ─── Search ──────────────────────────────────────────────────────────────
-  const runSearch = useCallback(
-    async (q) => {
-      try {
-        setViewMode('browse');
-        const res = await driveApi.search(scope, q);
-        setActiveSearch({ q, results: res?.results || [], truncated: res?.truncated });
-        selection.clear();
-        const params = new URLSearchParams(window.location.search);
-        params.set('q', q);
-        router.push(`?${params.toString()}`);
-      } catch (err) {
-        console.error(err);
-        toast.error('Search failed');
-      }
-    },
-    [scope, router, selection],
-  );
-
-  const clearSearch = useCallback(() => {
-    setActiveSearch(null);
-    const params = new URLSearchParams(window.location.search);
-    params.delete('q');
-    router.push(params.toString() ? `?${params.toString()}` : '?');
-  }, [router]);
-
-  const focusSearch = useCallback(() => {
-    if (window.innerWidth < 768) setSearchOverlay(true);
-    else searchBarRef.current?.focus();
-  }, []);
 
   // ─── Transfers ───────────────────────────────────────────────────────────
   const trackBatch = useCallback((id, label) => {
@@ -829,7 +792,7 @@ export default function DrivePage({ scope }) {
         items.push({ label: 'Copy to…', icon: <Copy size={14} />, onClick: () => setMoveDialog({ mode: 'copy', items: operating }) });
       }
 
-      if (clipboard.has && viewMode === 'browse' && !activeSearch) {
+      if (clipboard.has && viewMode === 'browse') {
         items.push({ label: `Paste here (${clipboard.payload()?.count || 0})`, icon: <ClipboardPaste size={14} />, shortcut: shortcutLabel('clipPaste'), onClick: () => doPaste() });
       }
 
@@ -842,7 +805,7 @@ export default function DrivePage({ scope }) {
       return items;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selection.ids, idToEntry, scope, navigate, starred, clipboard.clip, viewMode, activeSearch],
+    [selection.ids, idToEntry, scope, navigate, starred, clipboard.clip, viewMode],
   );
 
   // ─── Command palette entries ─────────────────────────────────────────────
@@ -874,8 +837,9 @@ export default function DrivePage({ scope }) {
       palette: () => setPaletteOpen((v) => !v),
       help: () => setShortcutsOpen((v) => !v),
       helpAlt: () => setShortcutsOpen((v) => !v),
-      search: focusSearch,
-      searchAlt: focusSearch,
+      // "/" and ⌘F are search muscle memory; the palette is now the only search.
+      search: () => setPaletteOpen(true),
+      searchAlt: () => setPaletteOpen(true),
       refresh: refreshAll,
       toggleSidebar: () => setSidebarOpen((v) => !v),
       toggleView: () => setView(view === 'grid' ? 'list' : 'grid'),
@@ -898,7 +862,6 @@ export default function DrivePage({ scope }) {
       extendDown: () => moveCursor(view === 'grid' ? gridColumns() : 1, { extend: true }),
       extendUp: () => moveCursor(view === 'grid' ? -gridColumns() : -1, { extend: true }),
       clear: () => {
-        if (activeSearch) clearSearch();
         selection.clear();
         ctxMenu.close();
         setCursorIndex(-1);
@@ -1004,6 +967,7 @@ export default function DrivePage({ scope }) {
     folders: visible.folders,
     files: visible.files,
     selection,
+    scope,
     cursorIndex,
     onItemClick,
     onItemOpen,
@@ -1016,7 +980,7 @@ export default function DrivePage({ scope }) {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-base text-ink">
+    <div className="flex h-screen flex-col overflow-hidden bg-canvas text-ink">
       <Navbar onShowShortcuts={() => setShortcutsOpen(true)} />
 
       <div
@@ -1084,18 +1048,9 @@ export default function DrivePage({ scope }) {
         )}
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 flex-col gap-2 border-b border-line bg-base px-3 pb-2 pt-3 sm:gap-3 sm:px-6 sm:pb-3 sm:pt-4">
-            <div className="hidden items-center gap-3 md:flex">
-              <SearchBar
-                ref={searchBarRef}
-                scope={scope}
-                prefix={prefix}
-                onSubmit={({ q }) => runSearch(q)}
-                onClearActive={clearSearch}
-                activeQuery={activeSearch?.q}
-              />
-              <div className="flex-1" />
-              {clipboard.has && (
+          <div className="flex shrink-0 flex-col gap-2 border-b border-line bg-canvas px-3 pb-2 pt-3 sm:gap-3 sm:px-6 sm:pb-3 sm:pt-4">
+            {clipboard.has && (
+              <div className="flex items-center">
                 <button
                   onClick={() => doPaste()}
                   className="flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/20"
@@ -1103,10 +1058,10 @@ export default function DrivePage({ scope }) {
                 >
                   <ClipboardPaste size={13} />
                   Paste {clipboard.payload()?.count}
-                  <span className="kbd">{MOD_LABEL} V</span>
+                  <span className="kbd hidden sm:inline">{MOD_LABEL} V</span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             <Toolbar
               view={view}
@@ -1116,7 +1071,6 @@ export default function DrivePage({ scope }) {
               onNewFolder={() => setNewFolderOpen(true)}
               onUploadFiles={onUploadFiles}
               onUploadFolder={onUploadFolder}
-              onOpenSearch={() => setSearchOverlay(true)}
               onOpenPalette={() => setPaletteOpen(true)}
               onToggleSidebar={() => setSidebarOpen(true)}
               onRefresh={refreshAll}
@@ -1140,17 +1094,6 @@ export default function DrivePage({ scope }) {
                   Back to files
                 </button>
               </div>
-            ) : activeSearch ? (
-              <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
-                <span className="truncate font-medium">
-                  Results for “{activeSearch.q}”: {sorted.files.length}
-                  {activeSearch.truncated ? '+' : ''}
-                </span>
-                <div className="flex-1" />
-                <button onClick={clearSearch} className="btn-neutral-small">
-                  Clear search
-                </button>
-              </div>
             ) : (
               <Breadcrumbs scope={scope} prefix={prefix} onNavigate={navigate} onDropItems={onDropIntoFolder} />
             )}
@@ -1166,8 +1109,6 @@ export default function DrivePage({ scope }) {
                 viewMode={viewMode}
                 filterCat={filterCat}
                 onClearFilter={() => setFilterCat(null)}
-                activeSearch={activeSearch}
-                onClearSearch={clearSearch}
                 onUpload={() => fileInputRef.current?.click()}
               />
             ) : view === 'grid' ? (
@@ -1201,27 +1142,6 @@ export default function DrivePage({ scope }) {
           </div>
         )}
       </div>
-
-      {searchOverlay && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/80 p-4 md:hidden" onClick={() => setSearchOverlay(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="glass rounded-xl p-3">
-            <SearchBar
-              scope={scope}
-              prefix={prefix}
-              onSubmit={({ q }) => {
-                runSearch(q);
-                setSearchOverlay(false);
-              }}
-              onClearActive={clearSearch}
-              activeQuery={activeSearch?.q}
-              autoFocus
-            />
-            <button onClick={() => setSearchOverlay(false)} className="btn-neutral mt-2 w-full">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
 
       <SelectionBar
         // The mobile drawer overlays the same corner; showing both is noise.
@@ -1318,18 +1238,11 @@ export default function DrivePage({ scope }) {
   );
 }
 
-function EmptyState({ viewMode, filterCat, onClearFilter, activeSearch, onClearSearch, onUpload }) {
+function EmptyState({ viewMode, filterCat, onClearFilter, onUpload }) {
   if (filterCat) {
     return (
       <Empty title="Nothing matches this filter" hint="Try a different file type.">
         <button onClick={onClearFilter} className="btn-neutral mt-4">Clear filter</button>
-      </Empty>
-    );
-  }
-  if (activeSearch) {
-    return (
-      <Empty title={`No matches for “${activeSearch.q}”`} hint="Try a different keyword.">
-        <button onClick={onClearSearch} className="btn-neutral mt-4">Clear search</button>
       </Empty>
     );
   }

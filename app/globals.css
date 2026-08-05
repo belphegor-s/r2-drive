@@ -8,7 +8,7 @@
    `bg-surface` / `text-muted` / `border-app` rather than raw hex values.
    ─────────────────────────────────────────────────────────────────────────── */
 @theme {
-  --color-base: #101113;
+  --color-canvas: #101113;
   --color-surface: #17181b;
   --color-raised: #1d1f23;
   --color-hover: #25282d;
@@ -48,7 +48,7 @@
 
 html,
 body {
-  background-color: var(--color-base);
+  background-color: var(--color-canvas);
   color: var(--color-ink);
 }
 

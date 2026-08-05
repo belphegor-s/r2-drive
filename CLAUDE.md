@@ -127,6 +127,45 @@ handler keyed by its `id` in `DrivePage`. A binding with no handler is inert.
   combo names `shift` explicitly. That is why `helpAlt` (`shift+/`) is listed
   before `search` (`/`) — order decides the match.
 
+## Grid thumbnails
+
+Tiles show real content for PDFs (first page) and for images the browser cannot
+cache by URL.
+
+Which path a tile takes:
+
+| Tile | Source |
+| --- | --- |
+| Public image | its stable CDN URL, straight into `<img>` |
+| Private image | fetched, downscaled to a JPEG, stored in IndexedDB |
+| PDF (either scope) | page 1 rendered by pdf.js, stored in IndexedDB |
+
+**Why private images cannot just use their URL:** a presigned URL carries a
+different query string on every request, so the browser HTTP cache never hits and
+the full original is re-fetched on every visit. Re-encoding once turned ~4.8 MB
+of originals into ~69 KB of thumbnails in a real folder — a revisit now downloads
+nothing at all.
+
+- `app/lib/thumbs.js` — shared constants, the 2-job concurrency queue, and the
+  canvas helpers (opaque white fill, so transparent PNGs and PDF pages do not
+  composite onto black).
+- `app/lib/pdfThumb.js` — lazy `import('pdfjs-dist')` (~350 KB; it must stay
+  dynamic and out of the shared bundle, which is still 101 kB).
+- `app/lib/imageThumb.js` — `createImageBitmap` → canvas. SVG/HEIC/AVIF are
+  declared unrenderable and keep the icon.
+- `app/lib/thumbStore.js` — IndexedDB cache keyed by object key and validated
+  against byte size. **This is what makes the feature affordable.** Never bypass it.
+- `app/hooks/useThumbnail.js` — one hook for both kinds. Starts only when the tile
+  is within 300px of the viewport, signs a URL on demand for the private scope
+  (signing is local to the server and costs no R2 operation), and remembers
+  failures for the session.
+- Password-protected PDFs raise `PasswordException`; that is expected and shows a
+  LOCKED badge rather than logging a warning.
+- The pdf.js worker is copied to `public/pdf.worker.min.mjs` by
+  `scripts/copy-pdf-worker.mjs` on **postinstall**, and is gitignored. Same-origin
+  keeps it inside `worker-src 'self' blob:`. If PDF thumbnails silently stop
+  working, check that file exists.
+
 ## Responsive rules
 
 The app is used on a phone as much as a desktop. Verify changes at **390×844
@@ -161,8 +200,9 @@ Class A operations are the scarce resource; a LIST costs one per 1000 objects.
   that writes to R2.**
 - `/recent` caches per scope for 3 min (it needs a full LIST; R2 cannot sort by
   mtime).
-- Search is a full prefix LIST, capped at 500 results. The command palette
-  debounces 220 ms and refuses queries shorter than 2 characters.
+- Search is a full prefix LIST, capped at 500 results. The command palette is the
+  only search surface (there is no search bar); it debounces 220 ms and refuses
+  queries shorter than 2 characters.
 - Thumbnails in the grid reuse the public URL. Private-scope thumbnails would
   need one presign each, so they are deliberately not rendered.
 

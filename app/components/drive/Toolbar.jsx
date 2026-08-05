@@ -3,20 +3,27 @@
 import { motion } from 'framer-motion';
 import {
   FolderPlus, Upload, FolderUp, LayoutGrid, List, ArrowUpDown, Menu, Search,
-  RefreshCw, PanelRight, Command,
+  RefreshCw, PanelRight,
 } from 'lucide-react';
 import { MOD_LABEL } from '@/app/lib/shortcuts';
 
 const tap = { whileTap: { scale: 0.96 }, whileHover: { y: -1 } };
 
+// Every control on this row is pinned to one height. Left to their own padding
+// they land on 30–38px and the row reads as ragged.
+const CTL = 'inline-flex h-9 items-center justify-center rounded-lg';
+const CTL_SQUARE = `${CTL} w-9`;
+
+// A <select> sizes itself to its widest option, so long labels here push the
+// whole toolbar onto a second row.
 const SORT_OPTIONS = [
   { value: 'modified:desc', label: 'Newest first' },
   { value: 'modified:asc', label: 'Oldest first' },
-  { value: 'name:asc', label: 'Name A → Z' },
-  { value: 'name:desc', label: 'Name Z → A' },
-  { value: 'size:desc', label: 'Size large → small' },
-  { value: 'size:asc', label: 'Size small → large' },
-  { value: 'type:asc', label: 'Type A → Z' },
+  { value: 'name:asc', label: 'Name A–Z' },
+  { value: 'name:desc', label: 'Name Z–A' },
+  { value: 'size:desc', label: 'Largest first' },
+  { value: 'size:asc', label: 'Smallest first' },
+  { value: 'type:asc', label: 'Type A–Z' },
 ];
 
 export default function Toolbar({
@@ -27,7 +34,6 @@ export default function Toolbar({
   onNewFolder,
   onUploadFiles,
   onUploadFolder,
-  onOpenSearch,
   onOpenPalette,
   onToggleSidebar,
   onRefresh,
@@ -43,13 +49,13 @@ export default function Toolbar({
       <motion.button
         {...tap}
         onClick={onToggleSidebar}
-        className="rounded-lg bg-raised p-2 transition-colors hover:bg-hover md:hidden"
+        className={`${CTL_SQUARE} border border-line bg-raised transition-colors hover:bg-hover md:hidden`}
         aria-label="Toggle sidebar"
       >
         <Menu size={18} />
       </motion.button>
 
-      <motion.button {...tap} onClick={onNewFolder} disabled={disabled} className="btn-neutral flex items-center gap-2" title="New folder (N)">
+      <motion.button {...tap} onClick={onNewFolder} disabled={disabled} className={`btn-neutral ${CTL} gap-2 px-3 py-0`} title="New folder (N)">
         <FolderPlus size={16} /> <span className="hidden sm:inline">New folder</span>
       </motion.button>
 
@@ -57,7 +63,7 @@ export default function Toolbar({
         {...tap}
         onClick={() => fileInputRef?.current?.click()}
         disabled={disabled}
-        className="btn-neutral flex items-center gap-2"
+        className={`btn-neutral ${CTL} gap-2 px-3 py-0`}
         title="Upload files (U)"
       >
         <Upload size={16} /> <span className="hidden sm:inline">Upload files</span>
@@ -80,7 +86,7 @@ export default function Toolbar({
         {...tap}
         onClick={() => folderInputRef?.current?.click()}
         disabled={disabled}
-        className="btn-neutral hidden items-center gap-2 sm:flex"
+        className="btn-neutral hidden h-9 items-center justify-center gap-2 rounded-lg px-3 py-0 sm:inline-flex"
         title="Upload folder (Shift+U)"
       >
         <FolderUp size={16} /> <span className="hidden sm:inline">Upload folder</span>
@@ -101,40 +107,36 @@ export default function Toolbar({
       {/* On phones this group wraps to its own line; stretching it stops the
           row from ending in a dead gap. */}
       <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto">
-        {/* Command palette. Touch devices have no ⌘K, so the button is the only
-            way in there — icon-only, and distinct from the search magnifier. */}
+        {/* The palette is the only search surface, so this button is the sole
+            entry point on touch, where there is no ⌘K. */}
         <motion.button
           {...tap}
           onClick={onOpenPalette}
-          className="flex items-center gap-2 rounded-lg border border-line bg-raised px-2.5 py-2 text-xs text-ink-faint transition-colors hover:bg-hover hover:text-ink"
-          title="Command palette"
-          aria-label="Command palette"
+          className={`${CTL} gap-2 border border-line bg-raised px-2.5 text-xs text-ink-faint transition-colors hover:bg-hover hover:text-ink`}
+          title="Search files and run actions"
+          aria-label="Search files and run actions"
         >
-          <Command size={15} className="lg:hidden" />
+          <Search size={15} className="lg:hidden" />
           <Search size={13} className="hidden lg:block" />
           <span className="kbd hidden lg:inline">{MOD_LABEL} K</span>
-        </motion.button>
-
-        <motion.button {...tap} onClick={onOpenSearch} className="btn-neutral flex items-center gap-2 md:hidden" aria-label="Search this drive">
-          <Search size={16} />
         </motion.button>
 
         <motion.button
           {...tap}
           onClick={onRefresh}
-          className="rounded-lg border border-line bg-raised p-2 text-ink-muted transition-colors hover:bg-hover hover:text-ink"
+          className={`${CTL_SQUARE} border border-line bg-raised text-ink-muted transition-colors hover:bg-hover hover:text-ink`}
           title="Refresh (R)"
           aria-label="Refresh"
         >
           <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
         </motion.button>
 
-        <div className="relative hidden items-center rounded-lg border border-line bg-surface p-0.5 sm:flex">
+        <div className="relative hidden h-9 items-center rounded-lg border border-line bg-surface p-1 sm:flex">
           {['grid', 'list'].map((mode) => (
             <button
               key={mode}
               onClick={() => setView(mode)}
-              className={`relative rounded-md px-2 py-1.5 transition-colors ${
+              className={`relative inline-flex h-full items-center rounded-md px-2 transition-colors ${
                 view === mode ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
               }`}
               aria-label={`${mode} view`}
@@ -156,7 +158,7 @@ export default function Toolbar({
 
         <button
           onClick={onToggleDetails}
-          className={`hidden rounded-lg border p-2 transition-colors lg:block ${
+          className={`hidden h-9 w-9 items-center justify-center rounded-lg border transition-colors lg:inline-flex ${
             detailsOpen
               ? 'border-accent/40 bg-accent/15 text-accent'
               : 'border-line bg-raised text-ink-muted hover:bg-hover hover:text-ink'
@@ -175,7 +177,7 @@ export default function Toolbar({
               const [by, dir] = e.target.value.split(':');
               setSort({ by, dir });
             }}
-            className="custom-input w-full appearance-none pl-3 pr-9 text-xs sm:w-auto sm:min-w-[170px] sm:text-sm"
+            className="custom-input h-9 w-full appearance-none py-0 pl-3 pr-9 text-xs sm:w-auto sm:min-w-[140px] sm:text-sm"
             aria-label="Sort order"
           >
             {SORT_OPTIONS.map((o) => (

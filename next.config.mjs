@@ -14,6 +14,7 @@ const nextConfig = {
               style-src 'self' 'unsafe-inline';
               img-src 'self' blob: data: storage.procd.cc *.r2.cloudflarestorage.com;
               font-src 'self' data:;
+              worker-src 'self' blob:;
               connect-src 'self' storage.procd.cc *.r2.cloudflarestorage.com https://vitals.vercel-insights.com;
               frame-src 'self' storage.procd.cc *.r2.cloudflarestorage.com docs.google.com;
               media-src 'self' storage.procd.cc *.r2.cloudflarestorage.com;

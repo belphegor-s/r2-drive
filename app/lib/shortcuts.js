@@ -18,13 +18,14 @@ export const MOD_LABEL = IS_APPLE ? '⌘' : 'Ctrl';
  */
 export const SHORTCUTS = [
   // ─── General ─────────────────────────────────────────────────────────────
-  { id: 'palette',      combo: 'mod+k',        group: 'General',   label: 'Command palette', allowInInput: true },
+  { id: 'palette',      combo: 'mod+k',        group: 'General',   label: 'Search files & run actions', allowInInput: true },
   { id: 'help',         combo: '?',            group: 'General',   label: 'Keyboard shortcuts' },
   // Some layouts report Shift+/ as "/" rather than "?"; this alias must be
   // listed before the bare "/" binding so it wins the match.
   { id: 'helpAlt',      combo: 'shift+/',      group: 'General',   label: 'Keyboard shortcuts', hidden: true },
-  { id: 'search',       combo: '/',            group: 'General',   label: 'Search this drive' },
-  { id: 'searchAlt',    combo: 'mod+f',        group: 'General',   label: 'Search this drive', hidden: true },
+  // Search lives in the palette; "/" and ⌘F are kept as aliases for muscle memory.
+  { id: 'search',       combo: '/',            group: 'General',   label: 'Search files', hidden: true },
+  { id: 'searchAlt',    combo: 'mod+f',        group: 'General',   label: 'Search files', hidden: true },
   { id: 'refresh',      combo: 'r',            group: 'General',   label: 'Refresh listing' },
   { id: 'toggleSidebar',combo: 'b',            group: 'General',   label: 'Toggle sidebar' },
   { id: 'toggleView',   combo: 'v',            group: 'General',   label: 'Switch grid / list' },

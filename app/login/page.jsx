@@ -45,7 +45,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-6 bg-base">
+    <div className="relative min-h-screen flex items-center justify-center p-6 bg-canvas">
       {/* Dotted background */}
       <div
         aria-hidden

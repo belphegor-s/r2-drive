@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Star } from 'lucide-react';
+import { Check, Star, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { FolderIcon, FileTypeIcon } from './fileIcons';
 import { formatFileSize } from '@/utils/formatFileSize';
 import { categoryOf } from '@/app/lib/fileTypes';
 import useLongPress from '@/app/hooks/useLongPress';
+import useThumbnail from '@/app/hooks/useThumbnail';
+import { isRenderableImage } from '@/app/lib/imageThumb';
 import { DRAG_MIME } from '@/app/lib/dnd';
 
 function GridItem({
@@ -23,6 +25,7 @@ function GridItem({
   onDragStart,
   onDropInto,
   thumbUrl,
+  scope,
   index,
 }) {
   const [dropActive, setDropActive] = useState(false);
@@ -31,6 +34,15 @@ function GridItem({
   });
 
   const cat = isFolder ? null : categoryOf(item.mime || '', item.name);
+  const isPdf = cat === 'pdf';
+
+  // Public images have a stable CDN URL, so they render straight from it. Private
+  // images do not: their presigned URL changes every request, which defeats the
+  // browser cache, so those go through the render-and-store path instead.
+  const needsImageRender = cat === 'image' && !thumbUrl && isRenderableImage(item.name);
+  const kind = isPdf ? 'pdf' : needsImageRender ? 'image' : null;
+  const rendered = useThumbnail(kind ? item : null, scope, kind);
+
   const showThumb = !isFolder && cat === 'image' && thumbUrl;
 
   const dropProps = isFolder
@@ -89,14 +101,49 @@ function GridItem({
     >
       {/* Square thumbs are too tall on a phone — two columns of them fit barely
           two rows on screen. Shorter below sm. */}
-      <div className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-sunken sm:aspect-square">
+      <div
+        ref={rendered.ref}
+        className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-sunken sm:aspect-square"
+      >
         {showThumb ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumbUrl} alt={item.name} className="h-full w-full object-cover" loading="lazy" draggable={false} />
+        ) : rendered.thumb ? (
+          <>
+            {/* PDFs are anchored to the top — the first page's masthead is the
+                recognisable part. Photos read better centred. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={rendered.thumb}
+              alt={item.name}
+              className={`h-full w-full object-cover ${isPdf ? 'object-top' : ''}`}
+              draggable={false}
+            />
+            {isPdf && (
+              <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-semibold tracking-wide text-red-300">
+                PDF
+              </span>
+            )}
+          </>
         ) : isFolder ? (
           <FolderIcon size={56} />
         ) : (
-          <FileTypeIcon name={item.name} mime={item.mime} size={48} />
+          <>
+            <FileTypeIcon name={item.name} mime={item.mime} size={48} />
+            {rendered.locked && (
+              <span
+                className="absolute bottom-1 right-1 flex items-center gap-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-semibold text-amber-300"
+                title="Password-protected PDF — no preview"
+              >
+                <Lock size={9} /> LOCKED
+              </span>
+            )}
+            {rendered.loading && (
+              <span className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-raised">
+                <span className="progress-indeterminate block h-full w-1/3 bg-accent" />
+              </span>
+            )}
+          </>
         )}
       </div>
 
@@ -144,6 +191,7 @@ export default function FileGrid({
   folders,
   files,
   selection,
+  scope,
   cursorIndex = -1,
   onItemClick,
   onItemOpen,
@@ -195,6 +243,7 @@ export default function FileGrid({
             isCursor={cursorIndex === fullIdx}
             isCut={isCut?.(id)}
             isStarred={isStarred?.(id)}
+            scope={scope}
             thumbUrl={thumbCache?.[f.key] || (f.url && categoryOf(f.mime || '', f.name) === 'image' ? f.url : null)}
             onClick={(e) => onItemClick({ id, index: fullIdx, ids: allIds, kind: 'file', item: f, e })}
             onDoubleClick={() => onItemOpen({ kind: 'file', item: f })}
