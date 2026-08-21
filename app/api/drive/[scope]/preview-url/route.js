@@ -3,7 +3,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { requireAuthAndScope, badRequest, serverError } from '@/lib/r2/guard';
 import { r2Client } from '@/lib/r2/client';
-import { ensureRootPrefixed } from '@/lib/r2/keys';
+import { ensureRootPrefixed, isTrashKey } from '@/lib/r2/keys';
 import { sign } from '@/lib/sign-token';
 
 const DOC_EXTS = new Set(['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp']);
@@ -28,6 +28,7 @@ export async function GET(req, { params }) {
 
   try {
     ensureRootPrefixed(key, scope.rootPrefix);
+    if (isTrashKey(key, scope.rootPrefix)) return badRequest('Reserved path');
 
     if (isDocFile(key) && !isLocalDev(req.nextUrl.hostname)) {
       const expires = Math.floor(Date.now() / 1000) + 600;

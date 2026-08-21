@@ -121,6 +121,25 @@ the identical header, or R2 returns 403. Flexible checksums are disabled in
 **`usePersistentState` adopts localStorage in an effect**, not during render —
 reading storage during render desyncs SSR markup and trips hydration errors.
 
+## Deep links
+
+A drive URL describes the whole view: `?path=<folder>&preview=<file>`, both
+relative to the scope root (`app/lib/driveLinks.js` re-attaches the root prefix —
+never trust one from the URL). Opening a file **pushes** the `preview` param, so
+Back closes the viewer; paging through the filmstrip **replaces** it. The viewer
+is rendered from the URL alone, which is what makes a pasted link reopen the file.
+
+- A cold link whose file is not in the listing costs one HEAD via `/meta`; files
+  opened in-app are seeded from the listing and cost nothing.
+- A cold link without `path` syncs the folder underneath the viewer once, on
+  mount, so closing the preview lands where the file lives.
+- `preview` values pointing at `.trash` are dropped client-side; `/meta` and
+  `/preview-url` also refuse them.
+- Anything that deletes, renames, or moves the previewed object must call
+  `closePreviewIfAffected` — otherwise the viewer keeps a dead key.
+- `middleware.js` carries the destination through login as `?next=`; the layout's
+  `getServerSession` is still the actual guard.
+
 ## Keyboard shortcuts
 
 `app/lib/shortcuts.js` is the single source of truth. The hook

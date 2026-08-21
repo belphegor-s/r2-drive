@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { requireAuthAndScope, badRequest, serverError } from '@/lib/r2/guard';
 import { r2Client } from '@/lib/r2/client';
-import { ensureRootPrefixed, basenameFromKey, folderPathFromKey } from '@/lib/r2/keys';
+import { ensureRootPrefixed, basenameFromKey, folderPathFromKey, isTrashKey } from '@/lib/r2/keys';
 import { mimeFromName, mimeCategory } from '@/lib/r2/mime';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +18,7 @@ export async function GET(req, { params }) {
 
   try {
     ensureRootPrefixed(key, scope.rootPrefix);
+    if (isTrashKey(key, scope.rootPrefix)) return badRequest('Reserved path');
     const head = await r2Client.send(new HeadObjectCommand({ Bucket: scope.bucket, Key: key }));
     const name = basenameFromKey(key);
     const mime = head.ContentType || mimeFromName(name);

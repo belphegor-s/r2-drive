@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, ChevronLeft, ChevronRight, Download, ExternalLink, ZoomIn, ZoomOut,
-  RotateCw, Maximize2, Link as LinkIcon, Star, Loader2,
+  RotateCw, Maximize2, Link as LinkIcon, Globe, Star, Loader2,
 } from 'lucide-react';
 import { driveApi } from '@/app/lib/driveClient';
 import { categoryOf } from '@/app/lib/fileTypes';
@@ -32,17 +32,20 @@ function IconButton({ title, onClick, disabled, active, children, className = ''
   );
 }
 
+// `index` is owned by the caller: the open file lives in the URL, so flipping
+// through the filmstrip has to travel back up rather than be held here.
 export default function PreviewModal({
   scope,
   files,
-  startIndex,
+  index,
+  onIndexChange,
   onClose,
   onDownload,
   onCopyLink,
+  onCopyDriveLink,
   onToggleStar,
   isStarred,
 }) {
-  const [index, setIndex] = useState(startIndex);
   const [url, setUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -56,8 +59,6 @@ export default function PreviewModal({
   // Presigned URLs are short-lived but stable within a session; caching avoids
   // re-signing every time the user flips back and forth.
   const urlCache = useRef(new Map());
-
-  useEffect(() => setIndex(startIndex), [startIndex]);
 
   const file = files[index];
   const cat = file ? categoryOf(file.mime || '', file.name) : null;
@@ -115,8 +116,11 @@ export default function PreviewModal({
     }
   }, [index, files, resolveUrl]);
 
-  const next = useCallback(() => setIndex((i) => Math.min(i + 1, files.length - 1)), [files.length]);
-  const prev = useCallback(() => setIndex((i) => Math.max(i - 1, 0)), []);
+  const next = useCallback(
+    () => onIndexChange(Math.min(index + 1, files.length - 1)),
+    [onIndexChange, index, files.length],
+  );
+  const prev = useCallback(() => onIndexChange(Math.max(index - 1, 0)), [onIndexChange, index]);
 
   const zoomBy = useCallback((factor) => {
     setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z * factor)));
@@ -228,9 +232,14 @@ export default function PreviewModal({
                 <Star size={15} className={starActive ? 'fill-amber-300 text-amber-300' : ''} />
               </IconButton>
             )}
-            {publicUrl && onCopyLink && (
-              <IconButton title="Copy public link" onClick={() => onCopyLink(publicUrl)}>
+            {onCopyDriveLink && (
+              <IconButton title="Copy link to this file" onClick={() => onCopyDriveLink(file)}>
                 <LinkIcon size={15} />
+              </IconButton>
+            )}
+            {publicUrl && onCopyLink && (
+              <IconButton title="Copy public CDN link" onClick={() => onCopyLink(publicUrl)}>
+                <Globe size={15} />
               </IconButton>
             )}
             <IconButton title="Download (D)" onClick={() => onDownload?.(file)}>
@@ -295,7 +304,7 @@ export default function PreviewModal({
             {filmstrip.map((f, i) => (
               <button
                 key={f.key}
-                onClick={() => setIndex(i)}
+                onClick={() => onIndexChange(i)}
                 title={f.name}
                 className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border transition-all ${
                   i === index ? 'border-accent ring-2 ring-accent/40' : 'border-line opacity-60 hover:opacity-100'

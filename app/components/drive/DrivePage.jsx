@@ -43,11 +43,30 @@ import { uploadEntries, fileListToEntries, snapshotDataTransferEntries, walkSnap
 import { categoryOf } from '@/app/lib/fileTypes';
 import { DRAG_MIME } from '@/app/lib/dnd';
 import { clearSelection } from '@/app/lib/interaction';
+import { relPathFromKey, keyFromRelPath, folderOfRelPath, fileLink } from '@/app/lib/driveLinks';
 import { MOD_LABEL, formatCombo, getShortcut } from '@/app/lib/shortcuts';
 import { formatCompactBytes } from '@/utils/formatFileSize';
 import copyToClipboard from '@/utils/copyToClipboard';
 
 const PREVIEWABLE = ['image', 'video', 'audio', 'pdf', 'text', 'doc'];
+
+// Rebuilds the querystring with `path` ahead of `preview`, so a drive URL always
+// reads folder-then-file however the params were set. A null patch value drops
+// the param.
+function orderedParams(searchParams, patch = {}) {
+  const current = new URLSearchParams(Array.from(searchParams.entries()));
+  for (const [k, v] of Object.entries(patch)) {
+    if (v) current.set(k, v);
+    else current.delete(k);
+  }
+  const out = new URLSearchParams();
+  for (const key of ['path', 'preview']) {
+    if (current.has(key)) out.set(key, current.get(key));
+    current.delete(key);
+  }
+  for (const [k, v] of current.entries()) out.set(k, v);
+  return out;
+}
 
 function shortcutLabel(id) {
   const s = getShortcut(id);
@@ -86,6 +105,11 @@ export default function DrivePage({ scope }) {
   const searchParams = useSearchParams();
   const prefix = searchParams.get('path') || '';
 
+  // The open file lives in the URL (`?preview=<path relative to scope root>`),
+  // so a preview is shareable, survives a reload, and Back closes it.
+  const previewRel = searchParams.get('preview') || '';
+  const previewKey = useMemo(() => keyFromRelPath(scope, previewRel), [scope, previewRel]);
+
   const { data, loading, refresh } = useDriveData(scope, prefix);
 
   const [view, setView] = usePersistentState('drive.view', 'grid');
@@ -119,7 +143,9 @@ export default function DrivePage({ scope }) {
   const [moveDialog, setMoveDialog] = useState(null);
   const [moveBusy, setMoveBusy] = useState(false);
   const [shareKey, setShareKey] = useState(null);
-  const [previewState, setPreviewState] = useState(null);
+  // Seeded when a file is opened, or fetched on a cold deep link: it holds the
+  // previewed object when it is not part of the current listing.
+  const [previewFile, setPreviewFile] = useState(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
@@ -129,6 +155,10 @@ export default function DrivePage({ scope }) {
   const [dropOver, setDropOver] = useState(false);
   const [cursorIndex, setCursorIndex] = useState(-1);
 
+  // True while this session owns the history entry the preview pushed, so
+  // closing can step back instead of stacking a second entry.
+  const pushedPreviewRef = useRef(false);
+  const deepLinkSyncedRef = useRef(false);
   const dragCounter = useRef(0);
   const batchControllers = useRef(new Map());
   const fileInputRef = useRef(null);
@@ -136,7 +166,7 @@ export default function DrivePage({ scope }) {
   const contentRef = useRef(null);
 
   const anyModalOpen =
-    Boolean(previewState) || Boolean(confirm) || Boolean(renameTarget) || Boolean(moveDialog) ||
+    Boolean(previewKey) || Boolean(confirm) || Boolean(renameTarget) || Boolean(moveDialog) ||
     Boolean(shareKey) || newFolderOpen || paletteOpen || shortcutsOpen || trashOpen;
 
   // ─── Data shaping ────────────────────────────────────────────────────────
@@ -223,6 +253,7 @@ export default function DrivePage({ scope }) {
       if (newPrefix) params.set('path', newPrefix);
       else params.delete('path');
       params.delete('q');
+      params.delete('preview');
       const qs = params.toString();
       router.push(qs ? `?${qs}` : '?');
       setViewMode('browse');
@@ -379,22 +410,160 @@ export default function DrivePage({ scope }) {
   }, []);
 
   // ─── Preview ─────────────────────────────────────────────────────────────
+  // Writes the `preview` search param. Opening pushes (so Back closes the
+  // viewer); flipping through the filmstrip replaces (so Back does not have to
+  // walk every file the user paged past).
+  const setPreviewParam = useCallback(
+    (rel, { replace = false } = {}) => {
+      const params = orderedParams(searchParams, { preview: rel || null });
+      const qs = params.toString();
+      const href = qs ? `?${qs}` : '?';
+      if (replace) router.replace(href, { scroll: false });
+      else router.push(href, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
   const openPreview = useCallback(
     (file) => {
-      const idx = previewableFiles.findIndex((f) => f.key === file.key);
-      if (idx !== -1) {
-        setPreviewState({ startIndex: idx });
-        return;
-      }
-      // The file is not part of the current listing (sidebar leaf, palette hit).
+      if (!file?.key) return;
       if (PREVIEWABLE.includes(categoryOf(file.mime || '', file.name))) {
-        setPreviewState({ startIndex: 0, files: [file] });
+        // Seed the object so a file outside the current listing (sidebar leaf,
+        // palette hit, recent view) renders without a metadata round trip.
+        setPreviewFile(file);
+        pushedPreviewRef.current = true;
+        setPreviewParam(relPathFromKey(scope, file.key));
         return;
       }
       driveApi.previewUrl(scope, file.key).then(({ url }) => window.open(url, '_blank', 'noopener'));
     },
-    [previewableFiles, scope],
+    [scope, setPreviewParam],
   );
+
+  const closePreview = useCallback(() => {
+    if (pushedPreviewRef.current) {
+      pushedPreviewRef.current = false;
+      router.back();
+      return;
+    }
+    // Landed here directly — there is nothing to go back to.
+    setPreviewParam('', { replace: true });
+  }, [router, setPreviewParam]);
+
+  // Anything that removes the previewed object has to take the viewer with it.
+  const closePreviewIfAffected = useCallback(
+    (keys = [], prefixes = []) => {
+      if (!previewKey) return;
+      const rel = relPathFromKey(scope, previewKey);
+      const hit = keys.includes(previewKey)
+        || prefixes.some((p) => p && (rel === p || rel.startsWith(`${p}/`)));
+      if (!hit) return;
+      pushedPreviewRef.current = false;
+      setPreviewFile(null);
+      setPreviewParam('', { replace: true });
+    },
+    [previewKey, scope, setPreviewParam],
+  );
+
+  const previewIndex = useMemo(
+    () => (previewKey ? previewableFiles.findIndex((f) => f.key === previewKey) : -1),
+    [previewKey, previewableFiles],
+  );
+
+  // In the listing: the whole folder is the filmstrip. Otherwise: just this file.
+  const previewFiles = useMemo(() => {
+    if (previewIndex !== -1) return previewableFiles;
+    if (previewFile && previewFile.key === previewKey) return [previewFile];
+    return null;
+  }, [previewIndex, previewableFiles, previewFile, previewKey]);
+
+  const previewCursor = previewIndex !== -1 ? previewIndex : 0;
+
+  const setPreviewIndex = useCallback(
+    (i) => {
+      const target = previewFiles?.[i];
+      if (!target) return;
+      setPreviewFile(target);
+      setPreviewParam(relPathFromKey(scope, target.key), { replace: true });
+    },
+    [previewFiles, scope, setPreviewParam],
+  );
+
+  const copyDriveLink = useCallback(
+    async (file) => {
+      const link = fileLink(scope, file?.key);
+      if (!link) return;
+      const ok = await copyToClipboard(link);
+      if (ok) toast.success('Link copied');
+      else toast.error('Failed to copy');
+    },
+    [scope],
+  );
+
+  // A `preview` value that is malformed or points at reserved space is dropped
+  // rather than shown as a broken viewer.
+  useEffect(() => {
+    if (previewRel && !previewKey) setPreviewParam('', { replace: true });
+  }, [previewRel, previewKey, setPreviewParam]);
+
+  // A cold deep link carries the file but may not carry its folder — land the
+  // listing underneath the viewer where the file actually lives, once, on mount.
+  useEffect(() => {
+    if (deepLinkSyncedRef.current) return;
+    deepLinkSyncedRef.current = true;
+    if (!previewRel || !previewKey) return;
+    const folder = folderOfRelPath(previewRel);
+    if (folder === prefix) return;
+    router.replace(`?${orderedParams(searchParams, { path: folder || null })}`, { scroll: false });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cold deep link to a file the listing does not contain: one HEAD to describe
+  // it. Files opened in-app are already seeded, so this stays rare.
+  useEffect(() => {
+    if (!previewKey) {
+      setPreviewFile(null);
+      return undefined;
+    }
+    if (previewableFiles.some((f) => f.key === previewKey)) return undefined;
+    if (previewFile?.key === previewKey) return undefined;
+    if (viewMode === 'browse' && loading) return undefined;
+
+    let cancelled = false;
+    driveApi
+      .meta(scope, previewKey)
+      .then((m) => {
+        if (cancelled) return;
+        setPreviewFile({
+          key: m.key,
+          name: m.name,
+          size: m.size,
+          lastModified: m.lastModified,
+          mime: m.mime,
+          url: m.url,
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        toast.error('That file no longer exists');
+        pushedPreviewRef.current = false;
+        setPreviewParam('', { replace: true });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewKey, previewableFiles, previewFile, viewMode, loading, scope, setPreviewParam]);
+
+  // The tab title names the open file, so a pinned preview is identifiable.
+  useEffect(() => {
+    const name = previewFiles?.[previewCursor]?.name;
+    if (!name) return undefined;
+    const previous = document.title;
+    document.title = `${name} · ${scope === 'public' ? 'Public' : 'Private'} drive`;
+    return () => {
+      document.title = previous;
+    };
+  }, [previewFiles, previewCursor, scope]);
 
   // ─── Trash / delete ──────────────────────────────────────────────────────
   const undoTrash = useCallback(
@@ -427,13 +596,14 @@ export default function DrivePage({ scope }) {
         if (res.trashToken) tokens.push(res.trashToken);
       }
 
+      closePreviewIfAffected(fileKeys, folders.map((f) => f.item.prefix));
       for (const item of items) starred.remove(item.id);
       selection.clear();
       setCursorIndex(-1);
       await refreshAll();
       return tokens;
     },
-    [scope, starred, selection, refreshAll],
+    [scope, starred, selection, refreshAll, closePreviewIfAffected],
   );
 
   const askDelete = useCallback(
@@ -534,7 +704,10 @@ export default function DrivePage({ scope }) {
         if (load.mode === 'cut') await driveApi.move(scope, args);
         else await driveApi.copy(scope, args);
         toast.success(load.mode === 'cut' ? 'Moved' : 'Copied');
-        if (load.mode === 'cut') clipboard.clear();
+        if (load.mode === 'cut') {
+          closePreviewIfAffected(load.keys || [], load.prefixes || []);
+          clipboard.clear();
+        }
         await refreshAll();
       } catch (err) {
         toast.error(err.message || 'Paste failed');
@@ -542,7 +715,7 @@ export default function DrivePage({ scope }) {
         setBusy(false);
       }
     },
-    [clipboard, prefix, scope, refreshAll],
+    [clipboard, prefix, scope, refreshAll, closePreviewIfAffected],
   );
 
   // ─── Drag and drop between items ─────────────────────────────────────────
@@ -574,6 +747,7 @@ export default function DrivePage({ scope }) {
       try {
         await driveApi.move(scope, { keys: payload.keys || [], prefixes: payload.prefixes || [], destPrefix });
         toast.success(`Moved ${payload.count || ''} to /${destPrefix || ''}`.replace('  ', ' '));
+        closePreviewIfAffected(payload.keys || [], payload.prefixes || []);
         selection.clear();
         await refreshAll();
       } catch (err) {
@@ -582,7 +756,7 @@ export default function DrivePage({ scope }) {
         setBusy(false);
       }
     },
-    [scope, selection, refreshAll],
+    [scope, selection, refreshAll, closePreviewIfAffected],
   );
 
   // ─── Upload ──────────────────────────────────────────────────────────────
@@ -764,6 +938,7 @@ export default function DrivePage({ scope }) {
         if (scope === 'private') {
           items.push({ label: 'Share (pre-signed)', icon: <Share2 size={14} />, onClick: () => setShareKey(single.item.key) });
         }
+        items.push({ label: 'Copy drive link', icon: <LinkIcon size={14} />, onClick: () => copyDriveLink(single.item) });
         items.push({ label: 'Copy object key', icon: <Copy size={14} />, onClick: () => copyLink(single.item.key) });
       }
 
@@ -809,7 +984,7 @@ export default function DrivePage({ scope }) {
       return items;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selection.ids, idToEntry, scope, navigate, starred, clipboard.clip, viewMode],
+    [selection.ids, idToEntry, scope, navigate, starred, clipboard.clip, viewMode, copyDriveLink],
   );
 
   // ─── Command palette entries ─────────────────────────────────────────────
@@ -886,8 +1061,8 @@ export default function DrivePage({ scope }) {
       star: () => toggleStar(detailsTarget),
       copyLink: () => {
         const entry = detailsTarget;
-        if (entry?.kind === 'file' && entry.item.url) copyLink(entry.item.url);
-        else toast.error('No public link for this item');
+        if (entry?.kind !== 'file') return toast.error('Select a file first');
+        return entry.item.url ? copyLink(entry.item.url) : copyDriveLink(entry.item);
       },
       clipCopy: () => doClipCopy(),
       clipCut: () => doClipCut(),
@@ -928,8 +1103,11 @@ export default function DrivePage({ scope }) {
         ? { prefix: renameTarget.item.prefix, newName }
         : { key: renameTarget.item.key, newName };
       await driveApi.rename(scope, payload);
-      // The key changed, so any star pointing at the old one is dead.
+      // The key changed, so any star — or open preview — pointing at the old
+      // one is dead.
       starred.remove(renameTarget.id);
+      if (renameTarget.kind === 'folder') closePreviewIfAffected([], [renameTarget.item.prefix]);
+      else closePreviewIfAffected([renameTarget.item.key]);
       toast.success('Renamed');
       setRenameTarget(null);
       await refreshAll();
@@ -951,7 +1129,10 @@ export default function DrivePage({ scope }) {
       if (moveDialog.mode === 'move') await driveApi.move(scope, args);
       else await driveApi.copy(scope, args);
 
-      if (moveDialog.mode === 'move') for (const item of moveDialog.items) starred.remove(item.id);
+      if (moveDialog.mode === 'move') {
+        closePreviewIfAffected(keys, prefixes);
+        for (const item of moveDialog.items) starred.remove(item.id);
+      }
       toast.success(moveDialog.mode === 'move' ? 'Moved' : 'Copied');
       setMoveDialog(null);
       selection.clear();
@@ -1223,14 +1404,16 @@ export default function DrivePage({ scope }) {
 
       {scope === 'private' && <ShareDialog open={Boolean(shareKey)} fileKey={shareKey} onClose={() => setShareKey(null)} />}
 
-      {previewState && (
+      {previewKey && previewFiles && (
         <PreviewModal
           scope={scope}
-          files={previewState.files || previewableFiles}
-          startIndex={previewState.startIndex}
-          onClose={() => setPreviewState(null)}
+          files={previewFiles}
+          index={previewCursor}
+          onIndexChange={setPreviewIndex}
+          onClose={closePreview}
           onDownload={downloadOne}
           onCopyLink={copyLink}
+          onCopyDriveLink={copyDriveLink}
           onToggleStar={(file) => toggleStar({ id: file.key, kind: 'file', item: file })}
           isStarred={(file) => starred.isStarred(file.key)}
         />

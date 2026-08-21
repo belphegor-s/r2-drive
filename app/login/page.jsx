@@ -9,6 +9,17 @@ import { Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import CFIcon from '@/assets/cloudflare-icon.svg';
 
+// Where to land after sign-in. Read from the querystring at submit time rather
+// than through `useSearchParams`, which would force this page under Suspense.
+// Only same-origin drive paths are honoured, so `next` cannot bounce elsewhere.
+function redirectTarget() {
+  if (typeof window === 'undefined') return '/upload';
+  const raw = new URLSearchParams(window.location.search).get('next');
+  if (!raw) return '/upload';
+  if (!raw.startsWith('/upload') || raw.startsWith('//')) return '/upload';
+  return raw;
+}
+
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -40,7 +51,7 @@ export default function LoginPage() {
       toast.error(msg);
       setProcessing(false);
     } else {
-      router.push('/upload');
+      router.push(redirectTarget());
     }
   };
 
