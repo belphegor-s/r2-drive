@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Globe, Lock, LogOut, Keyboard } from 'lucide-react';
-import CFIcon from '@/assets/cloudflare-icon.svg';
+import Logo from '@/assets/logo/logo.svg';
 
 const Navbar = ({ onShowShortcuts }) => {
   const pathname = usePathname() || '';
@@ -16,7 +16,7 @@ const Navbar = ({ onShowShortcuts }) => {
   return (
     <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-surface px-3 py-2.5 sm:px-4">
       <h1 className="flex items-center gap-2 text-base font-semibold sm:text-xl">
-        <Image src={CFIcon} alt="Cloudflare" width={28} height={28} priority />
+        <Image src={Logo} alt="R2 Drive" width={28} height={28} priority />
         <span className="hidden sm:inline">R2 Drive</span>
       </h1>
 

@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
-import CFIcon from '@/assets/cloudflare-icon.svg';
+import Logo from '@/assets/logo/logo.svg';
 
 // Where to land after sign-in. Read from the querystring at submit time rather
 // than through `useSearchParams`, which would force this page under Suspense.
@@ -71,7 +71,7 @@ export default function LoginPage() {
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: 'easeOut' }} className="relative w-full max-w-sm">
         <div className="flex flex-col items-center gap-3 mb-10">
-          <Image src={CFIcon} alt="Cloudflare" width={40} height={40} />
+          <Image src={Logo} alt="R2 Drive" width={40} height={40} />
           <h1 className="text-2xl font-semibold text-white">R2 Drive</h1>
           <p className="text-sm text-ink-muted">Sign in to continue</p>
         </div>

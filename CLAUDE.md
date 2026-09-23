@@ -72,7 +72,20 @@ app/lib/         client-side helpers
 app/hooks/       useDriveData, useSelection, useClipboard, useStarred, useUsage,
                  usePersistentState, useKeyboardShortcuts, useContextMenu, useLongPress
 app/components/drive/*    all drive UI; DrivePage.jsx is the orchestrator
+
+assets/logo/     logo.svg (Navbar/login) + logo-maskable.svg (full-bleed, PWA)
+  export/        PNG/WebP/JPG/ICO renders — `node scripts/generate-logo.mjs`,
+                 which also refreshes public/favicon.ico and public/icon-*.png
+assets/fonts/    woff files for OG rendering only
+app/icon.svg     favicon (keep in sync with assets/logo/logo.svg)
+app/opengraph-image.jsx   build-time OG card via next/og; twitter-image re-exports it
+app/apple-icon.jsx, app/manifest.js
 ```
+
+Metadata lives in `app/layout.js` (title template `%s · R2 Drive`); each route
+layout only sets `title`. `metadataBase` comes from `NEXTAUTH_URL`, so it must be
+the production origin on Vercel or OG image URLs point at localhost. The site is
+`noindex` on purpose.
 
 ### Object key format
 
